@@ -10,7 +10,7 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
 # ----------------- CONFIGURATION -----------------
-# শুধুমাত্র Environment Variables থেকে ডেটা নেবে, কোনো ডিফল্ট ভ্যালু নেই।
+# শুধুমাত্র Environment Variables থেকে ডেটা লোড করা হচ্ছে
 try:
     BOT_TOKEN = os.environ["BOT_TOKEN"]
     ADMIN_ID = int(os.environ["ADMIN_ID"])
@@ -23,7 +23,7 @@ except KeyError as e:
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
-# Google Sheets Setup (Strictly from Variables)
+# Google Sheets Setup
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 creds_dict = json.loads(GOOGLE_CREDENTIALS_JSON)
 creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
@@ -36,7 +36,7 @@ try:
     sheet2 = spreadsheet.worksheet("Sheet2") # দ্বিতীয় শিট (পেমেন্ট শিট)
 except:
     sheet2 = spreadsheet.add_worksheet(title="Sheet2", rows="1000", cols="10")
-    sheet2.update('A1:G1', [["User ID", "Username", "Bikash Number", "Total OK", "Rate", "Total Payment", "Date"]])
+    sheet2.update('A1:H1', [["User ID", "Username", "Bikash Number", "Total OK", "Rate", "Total Payment", "Date", "confirmation"]])
 
 def clean_value(val):
     if val is None: return ""
@@ -68,7 +68,7 @@ def get_admin_settings():
         
     return rate, date_val
 
-# Stylish & Colorful Keyboards Setup
+# Keyboards Setup
 def get_user_keyboard():
     markup = ReplyKeyboardMarkup(resize_keyboard=True)
     markup.row(KeyboardButton("📝 Submit File"), KeyboardButton("💳 Payment System"))
@@ -79,8 +79,8 @@ def get_admin_keyboard():
     status = get_bot_status()
     collecting_btn = "🔴 Stop Collecting" if status == "ON" else "🟢 Start Collecting"
     markup.row(KeyboardButton(collecting_btn), KeyboardButton("📊 Send Filtered Report"))
-    markup.row(KeyboardButton("📢 Send Broadcast"), KeyboardButton("🧹 Clear Data"))
-    markup.row(KeyboardButton("ℹ️ Check Status"))
+    markup.row(KeyboardButton("📢 Send Broadcast"), KeyboardButton("💸 Payment Done"))
+    markup.row(KeyboardButton("🧹 Clear Data"), KeyboardButton("ℹ️ Check Status"))
     return markup
 
 @bot.message_handler(commands=['start'])
@@ -151,6 +151,42 @@ def send_broadcast_to_all(message):
     except Exception as e:
         bot.reply_to(message, f"❌ ব্রডকাস্ট পাঠাতে সমস্যা হয়েছে: {e}")
 
+# --- Auto Payment Done Message (H Column Checking) ---
+@bot.message_handler(func=lambda msg: msg.chat.id == ADMIN_ID and msg.text == "💸 Payment Done")
+def payment_done_handler(message):
+    bot.reply_to(message, "⏳ পেমেন্ট কমপ্লিট মেসেজ পাঠানো হচ্ছে...")
+    try:
+        s2_data = sheet2.get_all_values()
+        if len(s2_data) <= 1:
+            bot.reply_to(message, "⚠️ পেমেন্ট শিটে (Sheet2) কোনো ডেটা নেই।")
+            return
+
+        success_count = 0
+        for row in s2_data[1:]:
+            if len(row) >= 8:
+                u_id = clean_value(row[0])           # A কলাম (User ID)
+                pay_amount = clean_value(row[5])     # F কলাম (Total Payment)
+                confirmation = clean_value(row[7])   # H কলাম (confirmation)
+                
+                if u_id.isdigit() and confirmation.lower() == "done":
+                    try:
+                        bot.send_message(
+                            int(u_id), 
+                            f"✅ **পেমেন্ট কমপ্লিট!**\n\nআপনার **{pay_amount} টাকা** সফলভাবে আপনার দেওয়া বিকাশ নম্বরে পাঠানো হয়েছে।\nআমাদের সাথে কাজ করার জন্য ধন্যবাদ!"
+                        )
+                        success_count += 1
+                        time.sleep(0.2)
+                    except:
+                        pass
+                        
+        if success_count > 0:
+            bot.reply_to(message, f"✅ সফলভাবে **{success_count}** জনকে পেমেন্ট কমপ্লিট মেসেজ পাঠানো হয়েছে (যাদের H কলামে 'done' লেখা ছিল)!")
+        else:
+            bot.reply_to(message, "⚠️ কাউকেই মেসেজ পাঠানো হয়নি। দয়া করে নিশ্চিত করুন যে Sheet2 এর H কলামে 'done' লেখা আছে।")
+            
+    except Exception as e:
+        bot.reply_to(message, f"❌ মেসেজ পাঠাতে সমস্যা হয়েছে: {e}")
+
 # --- Smart Payment System with Auto-Hide Inline Buttons ---
 @bot.message_handler(func=lambda msg: msg.text == "💳 Payment System")
 def payment_system_handler(message):
@@ -181,7 +217,6 @@ def payment_system_handler(message):
 def payment_inline_callback(call):
     user_id = str(call.message.chat.id)
     
-    # ক্লিকের সাথে সাথে বাটনগুলো হাইড করে দেওয়া
     try:
         bot.edit_message_reply_markup(chat_id=user_id, message_id=call.message.message_id, reply_markup=None)
     except:
@@ -218,7 +253,7 @@ def save_bikash_number(message):
             sheet2.update_cell(row_index, 2, username)
         else:
             rate, date_val = get_admin_settings()
-            sheet2.append_row([user_id, username, bikash_num, 0, rate, 0, date_val])
+            sheet2.append_row([user_id, username, bikash_num, 0, rate, 0, date_val, ""])
 
         bot.reply_to(message, f"✅ ধন্যবাদ! আপনার বিকাশ নম্বর (**{bikash_num}**) সফলভাবে সেভ করা হয়েছে।")
     except Exception as e:
@@ -285,12 +320,13 @@ def admin_report_handler(message):
                     u_id = clean_value(s2_row[0])
                     existing_users_map[u_id] = {
                         "username": s2_row[1] if len(s2_row) > 1 else "",
-                        "bikash": s2_row[2] if len(s2_row) > 2 else ""
+                        "bikash": s2_row[2] if len(s2_row) > 2 else "",
+                        "confirmation": s2_row[7] if len(s2_row) > 7 else ""
                     }
 
         for u_id, stats in user_stats.items():
             if u_id not in existing_users_map:
-                existing_users_map[u_id] = {"username": stats["name"], "bikash": ""}
+                existing_users_map[u_id] = {"username": stats["name"], "bikash": "", "confirmation": ""}
             else:
                 existing_users_map[u_id]["username"] = stats["name"]
 
@@ -301,17 +337,17 @@ def admin_report_handler(message):
             ok_count = user_stats[u_id]["ok"] if u_id in user_stats else 0
             total_pay = ok_count * PER_TASK_RATE
             
-            row_data = [u_id, info["username"], info["bikash"], ok_count, PER_TASK_RATE, total_pay, REPORT_DATE]
+            row_data = [u_id, info["username"], info["bikash"], ok_count, PER_TASK_RATE, total_pay, REPORT_DATE, info["confirmation"]]
             
             if ok_count > 0:
                 active_list.append(row_data)
             else:
                 inactive_list.append(row_data)
 
-        final_sheet2_rows = [["User ID", "Username", "Bikash Number", "Total OK", "Rate", "Total Payment", "Date"]] + active_list + inactive_list
+        final_sheet2_rows = [["User ID", "Username", "Bikash Number", "Total OK", "Rate", "Total Payment", "Date", "confirmation"]] + active_list + inactive_list
 
         sheet2.clear()
-        sheet2.update(f"A1:G{len(final_sheet2_rows)}", final_sheet2_rows)
+        sheet2.update(f"A1:H{len(final_sheet2_rows)}", final_sheet2_rows)
 
         if len(active_list) > 0:
             end_row = 1 + len(active_list)
@@ -322,7 +358,7 @@ def admin_report_handler(message):
                     "blue": 0.85
                 }
             }
-            sheet2.format(f"A2:G{end_row}", green_format)
+            sheet2.format(f"A2:H{end_row}", green_format)
 
         for u_id, stats in user_stats.items():
             if u_id.isdigit():
@@ -410,7 +446,7 @@ def handle_docs(message):
         bot.reply_to(message, f"❌ গুগল শিটে ডেটা সেভ করতে সমস্যা হয়েছে: {e}")
 
 if __name__ == "__main__":
-    print("Bot is running strictly using Environment Variables...")
+    print("Bot is running strictly using Environment Variables with H-Column Payment Confirmation...")
     while True:
         try:
             bot.infinity_polling(timeout=20, long_polling_timeout=15)
