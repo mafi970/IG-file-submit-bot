@@ -22,6 +22,9 @@ except KeyError as e:
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
+# Temporary memory to hold file data before confirmation
+pending_file_uploads = {}
+
 # Google Sheets Setup
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 creds_dict = json.loads(GOOGLE_CREDENTIALS_JSON)
@@ -43,7 +46,6 @@ def clean_value(val):
     if val_str.endswith(".0"): val_str = val_str[:-2]
     return val_str
 
-# Check if user has Bikash number saved
 def has_bikash_number(user_id):
     try:
         s2_data = sheet2.get_all_values()
@@ -56,7 +58,6 @@ def has_bikash_number(user_id):
     except:
         return False
 
-# Bot Status from Cell F1 of Sheet1
 def get_bot_status():
     try:
         val = clean_value(sheet1.cell(1, 6).value).upper()
@@ -91,7 +92,8 @@ def get_admin_keyboard():
     collecting_btn = "🔴 Stop Collecting" if status == "ON" else "🟢 Start Collecting"
     markup.row(KeyboardButton(collecting_btn), KeyboardButton("📊 Send Filtered Report"))
     markup.row(KeyboardButton("📢 Send Broadcast"), KeyboardButton("💸 Payment Done"))
-    markup.row(KeyboardButton("🧹 Clear Data"), KeyboardButton("ℹ️ Check Status"))
+    markup.row(KeyboardButton("🗑️ Delete User Data"), KeyboardButton("🧹 Clear Data"))
+    markup.row(KeyboardButton("ℹ️ Check Status"))
     return markup
 
 @bot.message_handler(commands=['start'])
@@ -102,6 +104,7 @@ def start_cmd(message):
     else:
         bot.send_message(user_id, "👋 **স্বাগতম!**\n\nবিকাশ নম্বর দেখতে বা সেট করতে '💳 Payment System' এ এবং ফাইল দিতে '📝 Submit File' এ ক্লিক করুন।", reply_markup=get_user_keyboard())
 
+# --- Toggle Collecting Status with Broadcast ---
 @bot.message_handler(func=lambda msg: msg.chat.id == ADMIN_ID and msg.text in ["🟢 Start Collecting", "🔴 Stop Collecting"])
 def toggle_collecting(message):
     current_status = get_bot_status()
@@ -109,13 +112,80 @@ def toggle_collecting(message):
     set_bot_status(new_status)
     
     state_text = "চালু (ON) 🟢" if new_status == "ON" else "বন্ধ (OFF) 🔴"
-    bot.send_message(ADMIN_ID, f"সফল! ফাইল কালেকশন এখন **{state_text}** আছে।", reply_markup=get_admin_keyboard())
+    bot.send_message(ADMIN_ID, f"⏳ ফাইল কালেকশন **{state_text}** করা হচ্ছে এবং ইউজারদের অটো নোটিশ পাঠানো হচ্ছে...", reply_markup=get_admin_keyboard())
+
+    try:
+        s2_data = sheet2.get_all_values()
+        all_user_ids = set()
+        
+        if len(s2_data) > 1:
+            for row in s2_data[1:]:
+                if len(row) > 0 and clean_value(row[0]).isdigit():
+                    all_user_ids.add(clean_value(row[0]))
+
+        if new_status == "ON":
+            user_msg = "📢 **নোটিশ:**\n\nফাইল গ্রহণ চালু করা হয়েছে! 🟢\nএখন আপনারা '📝 Submit File' অপশন ব্যবহার করে ফাইল জমা দিতে পারবেন।"
+        else:
+            user_msg = "📢 **নোটিশ:**\n\nফাইল গ্রহণ আপাতত বন্ধ করা হয়েছে! 🔴\nপরবর্তী নোটিশ না দেওয়া পর্যন্ত নতুন কোনো ফাইল জমা নেওয়া হবে না।"
+
+        success_count = 0
+        for u_id in all_user_ids:
+            try:
+                bot.send_message(int(u_id), user_msg)
+                success_count += 1
+                time.sleep(0.1)
+            except:
+                pass
+
+        bot.send_message(ADMIN_ID, f"✅ ফাইল কালেকশন এখন **{state_text}** আছে।\n📢 মোট **{success_count}** জন ইউজারকে নোটিশ পাঠানো হয়েছে!")
+    except Exception as e:
+        bot.send_message(ADMIN_ID, f"⚠️ ইউজারদের নোটিশ পাঠাতে সমস্যা হয়েছে: {e}")
 
 @bot.message_handler(func=lambda msg: msg.chat.id == ADMIN_ID and msg.text == "ℹ️ Check Status")
 def check_status(message):
     status = get_bot_status()
     rate, date_val = get_admin_settings()
     bot.send_message(ADMIN_ID, f"🟢 স্ট্যাটাস: **{status}**\n💰 বর্তমান রেট (I1): **{rate} টাকা**\n📅 সেট করা তারিখ (J1): **{date_val}**", reply_markup=get_admin_keyboard())
+
+# --- Delete Specific User Data (Admin Feature) ---
+@bot.message_handler(func=lambda msg: msg.chat.id == ADMIN_ID and msg.text == "🗑️ Delete User Data")
+def prompt_delete_user(message):
+    msg = bot.reply_to(message, "📲 আপনি যে ইউজারের ডেটা ডিলিট করতে চান তার **User ID** টি লিখে পাঠান:")
+    bot.register_next_step_handler(msg, process_delete_user_data)
+
+def process_delete_user_data(message):
+    target_uid = clean_value(message.text)
+    if not target_uid.isdigit():
+        bot.reply_to(message, "❌ ভুল User ID! শুধুমাত্র সংখ্যা দিন।")
+        return
+
+    bot.reply_to(message, f"⏳ User ID: **{target_uid}** এর ডেটা Sheet1 থেকে ডিলিট করা হচ্ছে...")
+    try:
+        all_data = sheet1.get_all_values()
+        if len(all_data) <= 1:
+            bot.reply_to(message, "⚠️ Sheet1 এ কোনো ডেটা নেই।")
+            return
+
+        rows_to_keep = [all_data[0]]  # Header
+        deleted_count = 0
+
+        for row in all_data[1:]:
+            row_uid = clean_value(row[3]) if len(row) > 3 else ""
+            if row_uid == target_uid:
+                deleted_count += 1
+            else:
+                rows_to_keep.append(row)
+
+        if deleted_count == 0:
+            bot.reply_to(message, f"⚠️ Sheet1 এ User ID **{target_uid}** এর কোনো ডেটা পাওয়া যায়নি।")
+            return
+
+        sheet1.clear()
+        sheet1.update(f"A1:E{len(rows_to_keep)}", rows_to_keep)
+        bot.reply_to(message, f"✅ সফলভাবে User ID **{target_uid}** এর মোট **{deleted_count}** টি রো ডিলিট করা হয়েছে!")
+
+    except Exception as e:
+        bot.reply_to(message, f"❌ ডেটা ডিলিট করতে সমস্যা হয়েছে: {e}")
 
 @bot.message_handler(func=lambda msg: msg.chat.id == ADMIN_ID and msg.text == "🧹 Clear Data")
 def clear_data_handler(message):
@@ -161,7 +231,7 @@ def send_broadcast_to_all(message):
     except Exception as e:
         bot.reply_to(message, f"❌ ব্রডকাস্ট পাঠাতে সমস্যা হয়েছে: {e}")
 
-# --- Payment Done Handler with Blue Color Formatting ---
+# --- Payment Done Handler ---
 @bot.message_handler(func=lambda msg: msg.chat.id == ADMIN_ID and msg.text == "💸 Payment Done")
 def payment_done_handler(message):
     bot.reply_to(message, "⏳ পেমেন্ট কমপ্লিট মেসেজ পাঠানো ও শিট আপডেট করা হচ্ছে...")
@@ -171,15 +241,9 @@ def payment_done_handler(message):
             bot.reply_to(message, "⚠️ পেমেন্ট শিটে (Sheet2) কোনো ডেটা নেই।")
             return
 
-        blue_format = {
-            "backgroundColor": {
-                "red": 0.7,
-                "green": 0.88,
-                "blue": 0.98
-            }
-        }
-
+        blue_format = {"backgroundColor": {"red": 0.7, "green": 0.88, "blue": 0.98}}
         success_count = 0
+
         for idx, row in enumerate(s2_data[1:], start=2):
             if len(row) >= 8:
                 u_id = clean_value(row[0])
@@ -199,7 +263,7 @@ def payment_done_handler(message):
                         pass
                         
         if success_count > 0:
-            bot.reply_to(message, f"✅ সফলভাবে **{success_count}** জনকে পেমেন্ট কমপ্লিট মেসেজ পাঠানো হয়েছে এবং শিটে হালকা নীল রঙ (Sky Blue) করা হয়েছে!")
+            bot.reply_to(message, f"✅ সফলভাবে **{success_count}** জনকে পেমেন্ট কমপ্লিট মেসেজ পাঠানো হয়েছে এবং শিটে হালকা নীল রঙ করা হয়েছে!")
         else:
             bot.reply_to(message, "⚠️ কাউকেই মেসেজ পাঠানো হয়নি। দয়া করে নিশ্চিত করুন যে Sheet2 এর H কলামে 'done' লেখা আছে।")
             
@@ -277,7 +341,7 @@ def save_bikash_number(message):
     except Exception as e:
         bot.reply_to(message, f"❌ বিকাশ নম্বর সেভ করতে সমস্যা হয়েছে: {e}")
 
-# --- Submit Prompt with Bikash Check ---
+# --- Submit Prompt ---
 @bot.message_handler(func=lambda msg: msg.text == "📝 Submit File")
 def submit_prompt(message):
     user_id = str(message.chat.id)
@@ -292,6 +356,107 @@ def submit_prompt(message):
         return
         
     bot.reply_to(message, "👉 আপনার কাজের Excel (.xlsx) ফাইলটি এখন সেন্ড করুন।")
+
+# --- Document Upload Handler with Confirmation Prompt ---
+@bot.message_handler(content_types=['document'])
+def handle_docs(message):
+    user_id = str(message.chat.id)
+    
+    if user_id != str(ADMIN_ID):
+        if not has_bikash_number(user_id):
+            bot.reply_to(message, "⚠️ **আপনার বিকাশ নম্বর সেট করা নেই!**\n\nফাইল জমা দেওয়ার আগে '💳 Payment System' অপশনে গিয়ে বিকাশ নম্বরটি সেভ করুন।")
+            return
+
+        status = get_bot_status()
+        if status == "OFF":
+            bot.reply_to(message, "❌ **বট এখন ফাইল কালেকশন বন্ধ রেখেছে।**")
+            return
+
+    file_name = message.document.file_name
+    if not file_name.endswith(('.xlsx', '.xls')):
+        bot.reply_to(message, "❌ অনুগ্রহ করে একটি সঠিক Excel (.xlsx) ফাইল পাঠান।")
+        return
+
+    bot.reply_to(message, "⏳ ফাইলটি চেক করা হচ্ছে...")
+    
+    file_info = bot.get_file(message.document.file_id)
+    downloaded_file = bot.download_file(file_info.file_path)
+    
+    temp_path = f"temp_{user_id}.xlsx"
+    with open(temp_path, 'wb') as f:
+        f.write(downloaded_file)
+
+    try:
+        df = pd.read_excel(temp_path, header=None)
+        username = message.from_user.username or message.from_user.first_name
+        rows_to_append = []
+
+        for _, row in df.iterrows():
+            col_a = clean_value(row.iloc[0]) if len(row) > 0 else ""
+            col_b = clean_value(row.iloc[1]) if len(row) > 1 else ""
+            col_c = clean_value(row.iloc[2]) if len(row) > 2 else ""
+            
+            if col_a:
+                rows_to_append.append([col_a, col_b, col_c, user_id, username])
+
+    except Exception as e:
+        if os.path.exists(temp_path): os.remove(temp_path)
+        bot.reply_to(message, f"❌ ফাইল রিড করতে সমস্যা হয়েছে: {e}")
+        return
+
+    if os.path.exists(temp_path): os.remove(temp_path)
+
+    if not rows_to_append:
+        bot.reply_to(message, "⚠️ আপনার ফাইলে কোনো ডেটা পাওয়া যায়নি।")
+        return
+
+    # Memory-তে সাময়িকভাবে সেভ করে রাখা হচ্ছে
+    pending_file_uploads[user_id] = rows_to_append
+    total_count = len(rows_to_append)
+
+    # Confirmation Buttons
+    markup = InlineKeyboardMarkup()
+    markup.row(
+        InlineKeyboardButton("✅ Confirm & Save", callback_data="confirm_file"),
+        InlineKeyboardButton("❌ Cancel", callback_data="cancel_file")
+    )
+
+    bot.reply_to(
+        message, 
+        f"📊 **ফাইল রিভিউ:**\n\nআপনার ফাইলে **{total_count}** টি অ্যাকাউন্ট পাওয়া গেছে।\nআপনি কি এটি ফাইনাল জমা দিতে চান?", 
+        reply_markup=markup
+    )
+
+# --- Confirmation Inline Callback ---
+@bot.callback_query_handler(func=lambda call: call.data in ["confirm_file", "cancel_file"])
+def handle_file_confirmation(call):
+    user_id = str(call.message.chat.id)
+
+    try:
+        bot.edit_message_reply_markup(chat_id=user_id, message_id=call.message.message_id, reply_markup=None)
+    except:
+        pass
+
+    if call.data == "confirm_file":
+        if user_id in pending_file_uploads:
+            rows_data = pending_file_uploads[user_id]
+            try:
+                sheet1.append_rows(rows_data)
+                total_count = len(rows_data)
+                bot.answer_callback_query(call.id, "ফাইল জমা হয়েছে!")
+                bot.send_message(user_id, f"✅ আপনার **{total_count}** টি অ্যাকাউন্ট সফলভাবে জমা হয়েছে!")
+            except Exception as e:
+                bot.send_message(user_id, f"❌ গুগল শিটে ডেটা সেভ করতে সমস্যা হয়েছে: {e}")
+            finally:
+                del pending_file_uploads[user_id]
+        else:
+            bot.send_message(user_id, "⚠️ পেন্ডিং কোনো ফাইলের ডেটা পাওয়া যায়নি। আবার ট্রাই করুন।")
+
+    elif call.data == "cancel_file":
+        if user_id in pending_file_uploads:
+            del pending_file_uploads[user_id]
+        bot.answer_callback_query(call.id, "বাতিল করা হয়েছে")
+        bot.send_message(user_id, "❌ ফাইল জমা দেওয়া বাতিল করা হয়েছে। আপনি চাইলে সঠিক ফাইলটি আবার সেন্ড করতে পারেন।")
 
 # --- Report Handler ---
 @bot.message_handler(func=lambda msg: msg.chat.id == ADMIN_ID and msg.text == "📊 Send Filtered Report")
@@ -416,68 +581,8 @@ def admin_report_handler(message):
     except Exception as e:
         bot.reply_to(message, f"❌ রিপোর্ট তৈরি করতে সমস্যা হয়েছে: {e}")
 
-# --- Document Handler with Bikash Check ---
-@bot.message_handler(content_types=['document'])
-def handle_docs(message):
-    user_id = str(message.chat.id)
-    
-    if user_id != str(ADMIN_ID):
-        if not has_bikash_number(user_id):
-            bot.reply_to(message, "⚠️ **আপনার বিকাশ নম্বর সেট করা নেই!**\n\nফাইল জমা দেওয়ার আগে '💳 Payment System' অপশনে গিয়ে বিকাশ নম্বরটি সেভ করুন।")
-            return
-
-        status = get_bot_status()
-        if status == "OFF":
-            bot.reply_to(message, "❌ **বট এখন ফাইল কালেকশন বন্ধ রেখেছে।**")
-            return
-
-    file_name = message.document.file_name
-    if not file_name.endswith(('.xlsx', '.xls')):
-        bot.reply_to(message, "❌ অনুগ্রহ করে একটি সঠিক Excel (.xlsx) ফাইল পাঠান।")
-        return
-
-    bot.reply_to(message, "⏳ ফাইল প্রসেস করে গুগল শিটে সেভ করা হচ্ছে...")
-    
-    file_info = bot.get_file(message.document.file_id)
-    downloaded_file = bot.download_file(file_info.file_path)
-    
-    temp_path = f"temp_{user_id}.xlsx"
-    with open(temp_path, 'wb') as f:
-        f.write(downloaded_file)
-
-    try:
-        df = pd.read_excel(temp_path, header=None)
-        username = message.from_user.username or message.from_user.first_name
-        rows_to_append = []
-
-        for _, row in df.iterrows():
-            col_a = clean_value(row.iloc[0]) if len(row) > 0 else ""
-            col_b = clean_value(row.iloc[1]) if len(row) > 1 else ""
-            col_c = clean_value(row.iloc[2]) if len(row) > 2 else ""
-            
-            if col_a:
-                rows_to_append.append([col_a, col_b, col_c, user_id, username])
-
-    except Exception as e:
-        if os.path.exists(temp_path): os.remove(temp_path)
-        bot.reply_to(message, f"❌ ফাইল রিড করতে সমস্যা হয়েছে: {e}")
-        return
-
-    if os.path.exists(temp_path): os.remove(temp_path)
-
-    if not rows_to_append:
-        bot.reply_to(message, "⚠️ আপনার ফাইলে কোনো ডেটা পাওয়া যায়নি।")
-        return
-
-    try:
-        sheet1.append_rows(rows_to_append)
-        total_count = len(rows_to_append)
-        bot.reply_to(message, f"✅ আপনার **{total_count}** টি অ্যাকাউন্ট সফলভাবে জমা হয়েছে!")
-    except Exception as e:
-        bot.reply_to(message, f"❌ গুগল শিটে ডেটা সেভ করতে সমস্যা হয়েছে: {e}")
-
 if __name__ == "__main__":
-    print("Bot is running with Bikash Verification & Payment Color Highlight System...")
+    print("Bot is running with File Confirmation and Specific User Delete Features...")
     while True:
         try:
             bot.infinity_polling(timeout=20, long_polling_timeout=15)
