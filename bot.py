@@ -96,13 +96,26 @@ def get_admin_keyboard():
     markup.row(KeyboardButton("ℹ️ Check Status"))
     return markup
 
+# --- Welcome Message Handler ---
 @bot.message_handler(commands=['start'])
 def start_cmd(message):
     user_id = message.chat.id
     if user_id == ADMIN_ID:
-        bot.send_message(user_id, "👋 **অ্যাডমিন প্যানেলে স্বাগতম!**\nবট সফলভাবে চালু রয়েছে।", reply_markup=get_admin_keyboard())
+        welcome_admin = (
+            "👑 **অ্যাডমিন প্যানেলে স্বাগতম!**\n\n"
+            "বট সফলভাবে রানিং রয়েছে। নিচের মেনু বাটনগুলো ব্যবহার করে বটের সব কার্যক্রম নিয়ন্ত্রণ করতে পারবেন।"
+        )
+        bot.send_message(user_id, welcome_admin, parse_mode="Markdown", reply_markup=get_admin_keyboard())
     else:
-        bot.send_message(user_id, "👋 **স্বাগতম!**\n\nবিকাশ নম্বর দেখতে বা সেট করতে '💳 Payment System' এ এবং ফাইল দিতে '📝 Submit File' এ ক্লিক করুন।", reply_markup=get_user_keyboard())
+        welcome_user = (
+            f"👋 **আসসালামু আলাইকুম, {message.from_user.first_name}!**\n\n"
+            "🎉 **আমাদের বটে আপনাকে স্বাগতম!**\n\n"
+            "📌 **গুরুত্বপূর্ণ নির্দেশনা:**\n"
+            "১. কাজ জমা দেওয়ার আগে অবশ্যই **'💳 Payment System'** এ গিয়ে আপনার সঠিক বিকাশ নম্বর সেট করে নিন।\n"
+            "২. নম্বর সেভ হয়ে গেলে **'📝 Submit File'** অপশন চাপ দিয়ে আপনার কাজের Excel (.xlsx) ফাইল জমা দিতে পারবেন।\n\n"
+            "ধন্যবাদ আমাদের সাথে কাজ করার জন্য! ❤️"
+        )
+        bot.send_message(user_id, welcome_user, parse_mode="Markdown", reply_markup=get_user_keyboard())
 
 # --- Toggle Collecting Status with Broadcast ---
 @bot.message_handler(func=lambda msg: msg.chat.id == ADMIN_ID and msg.text in ["🟢 Start Collecting", "🔴 Stop Collecting"])
@@ -147,7 +160,7 @@ def check_status(message):
     rate, date_val = get_admin_settings()
     bot.send_message(ADMIN_ID, f"🟢 স্ট্যাটাস: **{status}**\n💰 বর্তমান রেট (I1): **{rate} টাকা**\n📅 সেট করা তারিখ (J1): **{date_val}**", reply_markup=get_admin_keyboard())
 
-# --- Delete Specific User Data (Admin Feature) ---
+# --- Delete Specific User Data (Fixed Row 1 & API Range Error) ---
 @bot.message_handler(func=lambda msg: msg.chat.id == ADMIN_ID and msg.text == "🗑️ Delete User Data")
 def prompt_delete_user(message):
     msg = bot.reply_to(message, "📲 আপনি যে ইউজারের ডেটা ডিলিট করতে চান তার **User ID** টি লিখে পাঠান:")
@@ -163,13 +176,16 @@ def process_delete_user_data(message):
     try:
         all_data = sheet1.get_all_values()
         if len(all_data) <= 1:
-            bot.reply_to(message, "⚠️ Sheet1 এ কোনো ডেটা নেই।")
+            bot.reply_to(message, "⚠️ Sheet1 এ ডিলিট করার মতো কোনো ডেটা নেই (শুধুমাত্র হেডার রো রয়েছে)।")
             return
 
-        rows_to_keep = [all_data[0]]  # Header
+        header_row = all_data[0] # ১ম রো (সংরক্ষিত থাকবে)
+        data_rows = all_data[1:] # ২য় রো থেকে সব ডেটা
+
+        rows_to_keep = [header_row]
         deleted_count = 0
 
-        for row in all_data[1:]:
+        for row in data_rows:
             row_uid = clean_value(row[3]) if len(row) > 3 else ""
             if row_uid == target_uid:
                 deleted_count += 1
@@ -181,32 +197,32 @@ def process_delete_user_data(message):
             return
 
         sheet1.clear()
-        sheet1.update(f"A1:E{len(rows_to_keep)}", rows_to_keep)
-        bot.reply_to(message, f"✅ সফলভাবে User ID **{target_uid}** এর মোট **{deleted_count}** টি রো ডিলিট করা হয়েছে!")
+        sheet1.update('A1', rows_to_keep) # ডায়নামিক আপডেট যাতে কলাম রেঞ্জ এরর না দেয়
+        bot.reply_to(message, f"✅ সফলভাবে Row 1 ঠিক রেখে User ID **{target_uid}** এর মোট **{deleted_count}** টি রো ডিলিট করা হয়েছে!")
 
     except Exception as e:
         bot.reply_to(message, f"❌ ডেটা ডিলিট করতে সমস্যা হয়েছে: {e}")
 
+# --- Clear All Data (Row 1 Protected) ---
 @bot.message_handler(func=lambda msg: msg.chat.id == ADMIN_ID and msg.text == "🧹 Clear Data")
 def clear_data_handler(message):
     try:
         row_count = len(sheet1.get_all_values())
         if row_count > 1:
-            sheet1.delete_rows(2, row_count)
-            bot.reply_to(message, "✅ Sheet1 সফলভাবে খালি করা হয়েছে।")
+            sheet1.delete_rows(2, row_count) # শুধু ২ নম্বর রো থেকে বাকি সব মুছবে
+            bot.reply_to(message, "✅ Row 1 ঠিক রেখে Sheet1 এর বাকি সমস্ত ডেটা সফলভাবে পরিষ্কার করা হয়েছে।")
         else:
-            bot.reply_to(message, "⚠️ Sheet1 ইতিমধ্যে খালি আছে।")
+            bot.reply_to(message, "⚠️ Sheet1 এ ডিলিট করার মতো কোনো ডেটা নেই।")
     except Exception as e:
         bot.reply_to(message, f"❌ সমস্যা হয়েছে: {e}")
 
-# --- Broadcast Feature ---
+# --- Multi-Media Broadcast Feature ---
 @bot.message_handler(func=lambda msg: msg.chat.id == ADMIN_ID and msg.text == "📢 Send Broadcast")
 def broadcast_prompt(message):
-    msg = bot.reply_to(message, "📢 আপনি সকল ইউজারের কাছে যে মেসেজটি পাঠাতে চান তা লিখে পাঠান:")
+    msg = bot.reply_to(message, "📢 আপনি সকল ইউজারের কাছে যে মেসেজ বা ছবি/ভিডিও পাঠাতে চান তা এখানে সেন্ড করুন:")
     bot.register_next_step_handler(msg, send_broadcast_to_all)
 
 def send_broadcast_to_all(message):
-    text_to_send = message.text
     try:
         s2_data = sheet2.get_all_values()
         all_user_ids = set()
@@ -221,13 +237,14 @@ def send_broadcast_to_all(message):
         
         for u_id in all_user_ids:
             try:
-                bot.send_message(int(u_id), f"📢 **অ্যাডমিন নোটিশ:**\n\n{text_to_send}")
+                # Forwarding/Copying any message type (Text, Photo, Video, Document, Audio)
+                bot.copy_message(chat_id=int(u_id), from_chat_id=message.chat.id, message_id=message.message_id)
                 success_count += 1
-                time.sleep(0.2)
+                time.sleep(0.15)
             except:
                 fail_count += 1
                 
-        bot.reply_to(message, f"✅ ব্রডকাস্ট সফল!\nসফলভাবে গেছে: **{success_count}** জনের কাছে\nফেইল হয়েছে: **{fail_count}** জনের কাছে")
+        bot.reply_to(message, f"✅ ব্রডকাস্ট সফল!\n\n🟢 সফল হয়েছে: **{success_count}** জনের কাছে\n🔴 ফেইল হয়েছে: **{fail_count}** জনের কাছে")
     except Exception as e:
         bot.reply_to(message, f"❌ ব্রডকাস্ট পাঠাতে সমস্যা হয়েছে: {e}")
 
@@ -410,11 +427,9 @@ def handle_docs(message):
         bot.reply_to(message, "⚠️ আপনার ফাইলে কোনো ডেটা পাওয়া যায়নি।")
         return
 
-    # Memory-তে সাময়িকভাবে সেভ করে রাখা হচ্ছে
     pending_file_uploads[user_id] = rows_to_append
     total_count = len(rows_to_append)
 
-    # Confirmation Buttons
     markup = InlineKeyboardMarkup()
     markup.row(
         InlineKeyboardButton("✅ Confirm & Save", callback_data="confirm_file"),
@@ -450,7 +465,7 @@ def handle_file_confirmation(call):
             finally:
                 del pending_file_uploads[user_id]
         else:
-            bot.send_message(user_id, "⚠️ পেন্ডিং কোনো ফাইলের ডেটা পাওয়া যায়নি। আবার ট্রাই করুন।")
+            bot.send_message(user_id, "⚠️ পেন্ডিং কোনো ফাইলের ডেটা পাওয়া যায়নি। আবার চেষ্টা করুন।")
 
     elif call.data == "cancel_file":
         if user_id in pending_file_uploads:
@@ -582,7 +597,7 @@ def admin_report_handler(message):
         bot.reply_to(message, f"❌ রিপোর্ট তৈরি করতে সমস্যা হয়েছে: {e}")
 
 if __name__ == "__main__":
-    print("Bot is running with File Confirmation and Specific User Delete Features...")
+    print("Bot is running smoothly with Media Broadcast and Protected Row 1...")
     while True:
         try:
             bot.infinity_polling(timeout=20, long_polling_timeout=15)
