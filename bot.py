@@ -84,6 +84,7 @@ def get_admin_settings():
 def get_user_keyboard():
     markup = ReplyKeyboardMarkup(resize_keyboard=True)
     markup.row(KeyboardButton("📝 Submit File"), KeyboardButton("💳 Payment System"))
+    markup.row(KeyboardButton("🛠️ Support"))
     return markup
 
 def get_admin_keyboard():
@@ -116,6 +117,17 @@ def start_cmd(message):
             "ধন্যবাদ আমাদের সাথে কাজ করার জন্য! ❤️"
         )
         bot.send_message(user_id, welcome_user, parse_mode="Markdown", reply_markup=get_user_keyboard())
+
+# --- User Support Handler ---
+@bot.message_handler(func=lambda msg: msg.text == "🛠️ Support")
+def user_support_handler(message):
+    support_msg = (
+        "🎧 **কাস্টমার সাপোর্ট & হেল্প হেল্পলাইন**\n\n"
+        "আপনার কাজের যেকোনো সমস্যা, পেমেন্ট সংক্রান্ত বিষয় বা তথ্যের জন্য সরাসরি অ্যাডমিনের সাথে যোগাযোগ করুন।\n\n"
+        "👨‍💻 **অ্যাডমিন টেলিগ্রাম:** @Mafi5661\n\n"
+        "💬 মেসেজ দেওয়ার পর অনুগ্রহ করে কিছুক্ষণ অপেক্ষা করুন, দ্রুত উত্তর দেওয়া হবে। ধন্যবাদ! ❤️"
+    )
+    bot.reply_to(message, support_msg, parse_mode="Markdown")
 
 # --- Toggle Collecting Status with Broadcast ---
 @bot.message_handler(func=lambda msg: msg.chat.id == ADMIN_ID and msg.text in ["🟢 Start Collecting", "🔴 Stop Collecting"])
