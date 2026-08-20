@@ -24,6 +24,9 @@ pending_file_uploads = {}
 # Google Sheets Setup using Environment Variable JSON
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 try:
+    if not CREDENTIALS_JSON:
+        raise ValueError("Railway-তে 'CREDENTIALS_JSON' এনভায়রনমেন্ট ভ্যারিয়েবল দেওয়া হয়নি বা এটি খালি!")
+        
     creds_dict = json.loads(CREDENTIALS_JSON)
     creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
     client = gspread.authorize(creds)
@@ -32,6 +35,7 @@ try:
     sheet_collecting = spreadsheet.worksheet("collecting")
     sheet_payments = spreadsheet.worksheet("payments")
     sheet_report = spreadsheet.worksheet("report")
+    sheet_all_users = spreadsheet.worksheet("all users")
 except Exception as e:
     print(f"❌ Error connecting to Google Sheets: {e}")
     exit()
@@ -54,9 +58,38 @@ def has_bikash_number(user_id):
     except:
         return False
 
-# দুটি শিট থেকে সব ইউজারের আইডি সংগ্রহ করার ফাংশন (যাতে কেউ বাদ না পড়ে)
+# ইউজার বট স্টার্ট বা ইন্টারঅ্যাক্ট করলেই সরাসরি 'all users' শিটে সেভ করার ফাংশন
+def save_user_to_sheet(user_id, username):
+    try:
+        user_id_str = str(user_id)
+        all_rows = sheet_all_users.get_all_values()
+        
+        # হেডার না থাকলে হেডার দিয়ে নেওয়া
+        if not all_rows:
+            sheet_all_users.append_row(["User ID", "Username"])
+            all_rows = [["User ID", "Username"]]
+
+        existing_ids = [clean_value(row[0]) for row in all_rows[1:] if len(row) > 0]
+        
+        if user_id_str not in existing_ids:
+            sheet_all_users.append_row([user_id_str, username])
+    except Exception as e:
+        print(f"Error saving user to 'all users' sheet: {e}")
+
+# সব ইউজারের আইডি সংগ্রহ করার ফাংশন ('all users' শিট মূল মাধ্যম + ব্যাকআপ হিসেবে অন্য শিট)
 def get_all_registered_users():
     user_ids = set()
+    
+    # ১. প্রথমে 'all users' শিট থেকে সব আইডি তুলবে
+    try:
+        a_data = sheet_all_users.get_all_values()
+        for row in a_data[1:]:
+            if len(row) > 0 and clean_value(row[0]).isdigit():
+                user_ids.add(clean_value(row[0]))
+    except:
+        pass
+
+    # ২. ব্যাকআপ হিসেবে payments শিট চেক করবে
     try:
         s_data = sheet_payments.get_all_values()
         for row in s_data[1:]:
@@ -65,6 +98,7 @@ def get_all_registered_users():
     except:
         pass
         
+    # ৩. ব্যাকআপ হিসেবে collecting শিট চেক করবে
     try:
         c_data = sheet_collecting.get_all_values()
         for row in c_data[1:]:
@@ -72,7 +106,8 @@ def get_all_registered_users():
                 user_ids.add(clean_value(row[3]))
     except:
         pass
-    return user_ids
+        
+    return list(user_ids)
 
 def get_bot_status():
     try:
@@ -132,6 +167,9 @@ def save_welcome_msg(message_id):
 @bot.message_handler(commands=['start'])
 def start_cmd(message):
     user_id = message.chat.id
+    username = message.from_user.username or message.from_user.first_name
+    save_user_to_sheet(user_id, username)  # স্টার্ট করলেই গুগল শিটের 'all users' এ সেভ হবে
+
     if user_id == ADMIN_ID:
         welcome_admin = "👑 **অ্যাডমিন প্যানেলে স্বাগতম!**\n\nবট সফলভাবে রানিং রয়েছে।"
         bot.send_message(user_id, welcome_admin, parse_mode="Markdown", reply_markup=get_admin_keyboard())
@@ -189,6 +227,9 @@ def send_specific_user_msg(message, target_id):
 # --- User Support Handler ---
 @bot.message_handler(func=lambda msg: msg.text == "🛠️ Support")
 def user_support_handler(message):
+    user_id = message.chat.id
+    username = message.from_user.username or message.from_user.first_name
+    save_user_to_sheet(user_id, username)
     bot.reply_to(message, "🎧 **কাস্টমার সাপোর্ট:**\n\nযেকোনো সমস্যায় সরাসরি অ্যাডমিনের সাথে যোগাযোগ করুন: @Mafi5661", parse_mode="Markdown")
 
 # --- Toggle Collecting Status ---
@@ -220,6 +261,9 @@ def toggle_collecting(message):
 @bot.message_handler(func=lambda msg: msg.text == "📝 Submit File")
 def submit_prompt(message):
     user_id = str(message.chat.id)
+    username = message.from_user.username or message.from_user.first_name
+    save_user_to_sheet(user_id, username)
+
     if user_id != str(ADMIN_ID) and not has_bikash_number(user_id):
         bot.reply_to(message, "⚠️ ফাইল জমার আগে '💳 Payment System' এ বিকাশ নম্বর সেভ করুন।")
         return
@@ -231,6 +275,9 @@ def submit_prompt(message):
 @bot.message_handler(content_types=['document'])
 def handle_docs(message):
     user_id = str(message.chat.id)
+    username = message.from_user.username or message.from_user.first_name
+    save_user_to_sheet(user_id, username)
+
     if user_id != str(ADMIN_ID):
         if not has_bikash_number(user_id):
             return bot.reply_to(message, "⚠️ আগে বিকাশ নম্বর সেভ করুন।")
@@ -251,7 +298,6 @@ def handle_docs(message):
 
     try:
         df = pd.read_excel(temp_path, header=None)
-        username = message.from_user.username or message.from_user.first_name
         rows_to_append = []
 
         for _, row in df.iterrows():
@@ -504,6 +550,9 @@ def payment_done_handler(message):
 @bot.message_handler(func=lambda msg: msg.text == "💳 Payment System")
 def payment_system_handler(message):
     user_id = str(message.chat.id)
+    username = message.from_user.username or message.from_user.first_name
+    save_user_to_sheet(user_id, username)
+
     try:
         s_data = sheet_payments.get_all_values()
         existing_bikash = ""
@@ -539,6 +588,7 @@ def payment_inline_callback(call):
 def save_bikash_number(message):
     user_id = str(message.chat.id)
     username = message.from_user.username or message.from_user.first_name
+    save_user_to_sheet(user_id, username)
     bikash_num = clean_value(message.text)
 
     if not bikash_num.isdigit() or len(bikash_num) < 11:
@@ -571,7 +621,7 @@ def check_status(message):
     bot.send_message(ADMIN_ID, f"🟢 স্ট্যাটাস: **{get_bot_status()}**\n💰 রেট: **{rate}**\n📅 তারিখ: **{date_val}**")
 
 if __name__ == "__main__":
-    print("Bot is running with Railway environment variables and JSON credentials...")
+    print("Bot is running with Railway environment variables and 'all users' Google Sheet tracking...")
     while True:
         try:
             bot.infinity_polling(timeout=20, long_polling_timeout=15)
