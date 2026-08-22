@@ -36,6 +36,7 @@ try:
     sheet_payments = spreadsheet.worksheet("payments")
     sheet_report = spreadsheet.worksheet("report")
     sheet_all_users = spreadsheet.worksheet("all users")
+    sheet_all_number = spreadsheet.worksheet("all number") # নতুন শিট অ্যাড করা হলো
 except Exception as e:
     print(f"❌ Error connecting to Google Sheets: {e}")
     exit()
@@ -48,7 +49,7 @@ def clean_value(val):
 
 def has_bikash_number(user_id):
     try:
-        s_data = sheet_payments.get_all_values()
+        s_data = sheet_all_number.get_all_values() # এখন all number থেকে চেক করবে
         for row in s_data[1:]:
             if len(row) >= 3 and clean_value(row[0]) == str(user_id):
                 bikash = clean_value(row[2])
@@ -89,9 +90,9 @@ def get_all_registered_users():
     except:
         pass
 
-    # ২. ব্যাকআপ হিসেবে payments শিট চেক করবে
+    # ২. ব্যাকআপ হিসেবে all number শিট চেক করবে
     try:
-        s_data = sheet_payments.get_all_values()
+        s_data = sheet_all_number.get_all_values()
         for row in s_data[1:]:
             if len(row) > 0 and clean_value(row[0]).isdigit():
                 user_ids.add(clean_value(row[0]))
@@ -168,7 +169,7 @@ def save_welcome_msg(message_id):
 def start_cmd(message):
     user_id = message.chat.id
     username = message.from_user.username or message.from_user.first_name
-    save_user_to_sheet(user_id, username)  # স্টার্ট করলেই গুগল শিটের 'all users' এ সেভ হবে
+    save_user_to_sheet(user_id, username) 
 
     if user_id == ADMIN_ID:
         welcome_admin = "👑 **অ্যাডমিন প্যানেলে স্বাগতম!**\n\nবট সফলভাবে রানিং রয়েছে।"
@@ -243,7 +244,7 @@ def toggle_collecting(message):
     all_user_ids = get_all_registered_users()
 
     if new_status == "OFF":
-        notice_text = "📢 **নোটিশ:**\n\nফাইল গ্রহণ আপাতত বন্ধ করা হয়েছে! 🔴\nপরবর্তী নোটিশ না দেওয়া পর্যন্ত নতুন কোনো ফাইল জমা নেওয়া হবে না।"
+        notice_text = "📢 **নোটিশ:**\n\nফাইল গ্রহণ আপাতত বন্ধ করা হয়েছে! 🔴\nপরবর্তী নোটিশ না দেওয়া পর্যন্ত নতুন কোনো ফাইল জমা নেওয়া হবে fix না।"
     else:
         notice_text = "📢 **নোটিশ:**\n\nফাইল কালেকশন শুরু হয়েছে! 🟢\nএখন থেকে নিয়মিত ফাইল জমা দিতে পারবেন।"
 
@@ -376,7 +377,8 @@ def admin_report_handler(message):
                 if col_a in good_accounts:
                     user_stats[u_id]["ok"] += 1
 
-        s_payments_data = sheet_payments.get_all_values()
+        # all number শিট থেকে ইউজারদের বিকাশ নম্বর নেওয়া হচ্ছে
+        s_payments_data = sheet_all_number.get_all_values()
         existing_users_map = {}
         if len(s_payments_data) > 1:
             for s_row in s_payments_data[1:]:
@@ -385,7 +387,7 @@ def admin_report_handler(message):
                     existing_users_map[u_id] = {
                         "username": s_row[1] if len(s_row) > 1 else "",
                         "bikash": s_row[2] if len(s_row) > 2 else "",
-                        "confirmation": s_row[7] if len(s_row) > 7 else ""
+                        "confirmation": ""
                     }
 
         for u_id, stats in user_stats.items():
@@ -397,25 +399,48 @@ def admin_report_handler(message):
         combined_rows = []
         for u_id, info in existing_users_map.items():
             ok_count = user_stats[u_id]["ok"] if u_id in user_stats else 0
-            total_pay = ok_count * PER_TASK_RATE
-            row_data = [u_id, info["username"], info["bikash"], ok_count, PER_TASK_RATE, total_pay, REPORT_DATE, info["confirmation"]]
-            combined_rows.append(row_data)
+            
+            # শুধুমাত্র যারা পেমেন্ট পাবে তাদেরকে payments শিটে এড করা হচ্ছে 
+            if ok_count > 0:
+                total_pay = ok_count * PER_TASK_RATE
+                row_data = [u_id, info["username"], info["bikash"], ok_count, PER_TASK_RATE, total_pay, REPORT_DATE, info["confirmation"]]
+                combined_rows.append(row_data)
 
         combined_rows.sort(key=lambda x: x[3], reverse=True)
-
         final_rows = [["User ID", "Username", "Bikash Number", "Total OK", "Rate", "Total Payment", "Date", "confirmation"]] + combined_rows
         
         sheet_payments.clear()
-        sheet_payments.update(f"A1:H{len(final_rows)}", final_rows)
+        
+        if len(final_rows) > 1:
+            sheet_payments.update(f"A1:H{len(final_rows)}", final_rows)
 
-        green_format = {"backgroundColor": {"red": 0.8, "green": 1.0, "blue": 0.8}}
-        for idx, row in enumerate(combined_rows, start=2):
-            if row[3] > 0:
-                try:
-                    sheet_payments.format(f"A{idx}:H{idx}", green_format)
-                except:
-                    pass
+            green_format = {"backgroundColor": {"red": 0.8, "green": 1.0, "blue": 0.8}}
+            for idx, row in enumerate(combined_rows, start=2):
+                if row[3] > 0:
+                    try:
+                        sheet_payments.format(f"A{idx}:H{idx}", green_format)
+                    except:
+                        pass
+        else:
+            sheet_payments.update("A1:H1", [final_rows[0]])
 
+        # অ্যাডমিনকে ফিল্টার করা এক্সেল ফাইল পাঠানো
+        try:
+            df = pd.DataFrame(combined_rows, columns=["User ID", "Username", "Bikash Number", "Total OK", "Rate", "Total Payment", "Date", "confirmation"])
+            file_name = "Filtered_Report.xlsx"
+            file_path = os.path.join(BASE_DIR, file_name)
+            df.to_excel(file_path, index=False)
+            
+            with open(file_path, "rb") as f:
+                caption_text = f"📂 ফিল্টার করা রেজাল্ট ফাইল (তারিখ: {REPORT_DATE})।"
+                bot.send_document(message.chat.id, f, caption=caption_text)
+                
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        except Exception as e:
+            bot.send_message(message.chat.id, f"❌ এক্সেল ফাইল তৈরি করতে সমস্যা: {e}")
+
+        # ইউজারদের মেসেজ দেওয়া
         for u_id, stats in user_stats.items():
             if u_id.isdigit():
                 try:
@@ -423,7 +448,7 @@ def admin_report_handler(message):
                     bot.send_message(int(u_id), f"📊 **রিপোর্ট ({REPORT_DATE}):**\n📌 মোট জমা: **{stats['total']}** টি\n✅ OK: **{stats['ok']}** টি\n💰 পেমেন্ট: **{pay_amount} টাকা**")
                 except: pass
 
-        bot.reply_to(message, f"✅ রিপোর্ট সফলভাবে তৈরি হয়েছে, পেমেন্ট পাওয়া ইউজাররা উপরে ও সবুজ রঙ করা হয়েছে!")
+        bot.reply_to(message, f"✅ রিপোর্ট সফলভাবে তৈরি হয়েছে, পেমেন্ট পাওয়া ইউজাররা উপরে ও সবুজ রঙ করা হয়েছে এবং এক্সেল ফাইল পাঠানো হয়েছে!")
     except Exception as e:
         bot.reply_to(message, f"❌ রিপোর্ট তৈরি করতে সমস্যা: {e}")
 
@@ -524,14 +549,19 @@ def payment_done_handler(message):
             if len(row) >= 8:
                 u_id = clean_value(row[0])
                 pay_amount = clean_value(row[5])
+                report_date = clean_value(row[6]) # Date কলাম (G) থেকে ডেট নেওয়া হচ্ছে
                 confirmation = clean_value(row[7])
                 
                 if u_id.isdigit() and confirmation.lower() == "done":
                     try:
-                        bot.send_message(
-                            int(u_id), 
-                            f"✅ **পেমেন্ট কমপ্লিট!**\n\nআপনার **{pay_amount} টাকা** সফলভাবে আপনার দেওয়া বিকাশ নম্বরে পাঠানো হয়েছে।\nআমাদের সাথে কাজ করার জন্য ধন্যবাদ!"
+                        msg_text = (
+                            f"✅ **পেমেন্ট কমপ্লিট!**\n\n"
+                            f"আপনার **{pay_amount} টাকা** সফলভাবে আপনার দেওয়া বিকাশ নম্বরে পাঠানো হয়েছে।\n"
+                            f"📅 **রিপোর্টের তারিখ:** {report_date}\n\n"
+                            f"আমাদের সাথে কাজ করার জন্য ধন্যবাদ!"
                         )
+                        bot.send_message(int(u_id), msg_text)
+                        
                         sheet_payments.format(f"A{idx}:H{idx}", blue_format)
                         success_count += 1
                         time.sleep(0.2)
@@ -554,7 +584,7 @@ def payment_system_handler(message):
     save_user_to_sheet(user_id, username)
 
     try:
-        s_data = sheet_payments.get_all_values()
+        s_data = sheet_all_number.get_all_values() # all number থেকে চেক করবে
         existing_bikash = ""
         for row in s_data[1:]:
             if len(row) > 0 and clean_value(row[0]) == user_id:
@@ -595,7 +625,12 @@ def save_bikash_number(message):
         return bot.reply_to(message, "❌ ভুল নম্বর! সঠিক ১১ ডিজিটের বিকাশ নম্বর দিন।")
 
     try:
-        s_data = sheet_payments.get_all_values()
+        s_data = sheet_all_number.get_all_values()
+        
+        if not s_data:
+            sheet_all_number.append_row(["User ID", "Username", "Bikash Number"])
+            s_data = [["User ID", "Username", "Bikash Number"]]
+            
         row_index = -1
         for idx, row in enumerate(s_data[1:], start=2):
             if len(row) > 0 and clean_value(row[0]) == user_id:
@@ -605,11 +640,10 @@ def save_bikash_number(message):
         formatted_bikash = f"'{bikash_num}"
 
         if row_index != -1:
-            sheet_payments.update_cell(row_index, 3, formatted_bikash)
-            sheet_payments.update_cell(row_index, 2, username)
+            sheet_all_number.update_cell(row_index, 3, formatted_bikash)
+            sheet_all_number.update_cell(row_index, 2, username)
         else:
-            rate, date_val = get_admin_settings()
-            sheet_payments.append_row([user_id, username, formatted_bikash, 0, rate, 0, date_val, ""])
+            sheet_all_number.append_row([user_id, username, formatted_bikash]) # নতুন নম্বর হলে যুক্ত করবে
 
         bot.reply_to(message, f"✅ আপনার বিকাশ নম্বর (**{bikash_num}**) সফলভাবে সেভ করা হয়েছে।")
     except Exception as e:
