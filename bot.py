@@ -36,7 +36,7 @@ try:
     sheet_payments = spreadsheet.worksheet("payments")
     sheet_report = spreadsheet.worksheet("report")
     sheet_all_users = spreadsheet.worksheet("all users")
-    sheet_all_number = spreadsheet.worksheet("all number") # নতুন শিট অ্যাড করা হলো
+    sheet_all_number = spreadsheet.worksheet("all number")
 except Exception as e:
     print(f"❌ Error connecting to Google Sheets: {e}")
     exit()
@@ -49,7 +49,7 @@ def clean_value(val):
 
 def has_bikash_number(user_id):
     try:
-        s_data = sheet_all_number.get_all_values() # এখন all number থেকে চেক করবে
+        s_data = sheet_all_number.get_all_values()
         for row in s_data[1:]:
             if len(row) >= 3 and clean_value(row[0]) == str(user_id):
                 bikash = clean_value(row[2])
@@ -65,7 +65,6 @@ def save_user_to_sheet(user_id, username):
         user_id_str = str(user_id)
         all_rows = sheet_all_users.get_all_values()
         
-        # হেডার না থাকলে হেডার দিয়ে নেওয়া
         if not all_rows:
             sheet_all_users.append_row(["User ID", "Username"])
             all_rows = [["User ID", "Username"]]
@@ -77,11 +76,9 @@ def save_user_to_sheet(user_id, username):
     except Exception as e:
         print(f"Error saving user to 'all users' sheet: {e}")
 
-# সব ইউজারের আইডি সংগ্রহ করার ফাংশন ('all users' শিট মূল মাধ্যম + ব্যাকআপ হিসেবে অন্য শিট)
 def get_all_registered_users():
     user_ids = set()
     
-    # ১. প্রথমে 'all users' শিট থেকে সব আইডি তুলবে
     try:
         a_data = sheet_all_users.get_all_values()
         for row in a_data[1:]:
@@ -90,7 +87,6 @@ def get_all_registered_users():
     except:
         pass
 
-    # ২. ব্যাকআপ হিসেবে all number শিট চেক করবে
     try:
         s_data = sheet_all_number.get_all_values()
         for row in s_data[1:]:
@@ -99,7 +95,6 @@ def get_all_registered_users():
     except:
         pass
         
-    # ৩. ব্যাকআপ হিসেবে collecting শিট চেক করবে
     try:
         c_data = sheet_collecting.get_all_values()
         for row in c_data[1:]:
@@ -153,7 +148,6 @@ def get_admin_keyboard():
     markup.row(KeyboardButton("ℹ️ Check Status"))
     return markup
 
-# --- Welcome Message Configuration ---
 def load_welcome_msg():
     if os.path.exists(WELCOME_CONFIG_FILE):
         with open(WELCOME_CONFIG_FILE, "r") as f:
@@ -164,7 +158,6 @@ def save_welcome_msg(message_id):
     with open(WELCOME_CONFIG_FILE, "w") as f:
         json.dump({"message_id": message_id}, f)
 
-# --- Start & Welcome Handler ---
 @bot.message_handler(commands=['start'])
 def start_cmd(message):
     user_id = message.chat.id
@@ -191,7 +184,6 @@ def start_cmd(message):
         )
         bot.send_message(user_id, welcome_user, parse_mode="Markdown", reply_markup=get_user_keyboard())
 
-# --- Set Welcome Message (Admin Feature) ---
 @bot.message_handler(func=lambda msg: msg.chat.id == ADMIN_ID and msg.text == "⚙️ Set Welcome Msg")
 def prompt_welcome_msg(message):
     msg = bot.reply_to(message, "📝 **নতুন ওয়েলকাম মেসেজ সেট করুন:**\n\nআপনি ইউজারদের যে মেসেজ দেখাতে চান, সেটি সেন্ড বা ফরওয়ার্ড করুন।")
@@ -204,7 +196,6 @@ def save_custom_welcome(message):
     except Exception as e:
         bot.reply_to(message, f"❌ সমস্যা হয়েছে: {e}")
 
-# --- Message Specific User (Admin Feature) ---
 @bot.message_handler(func=lambda msg: msg.chat.id == ADMIN_ID and msg.text == "💬 Message User")
 def prompt_message_user(message):
     msg = bot.reply_to(message, "📲 আপনি যে ইউজারকে মেসেজ পাঠাতে চান, তার **User ID** টি এখানে লিখুন:")
@@ -225,7 +216,6 @@ def send_specific_user_msg(message, target_id):
     except Exception as e:
         bot.reply_to(message, f"❌ সমস্যা হয়েছে: {e}")
 
-# --- User Support Handler ---
 @bot.message_handler(func=lambda msg: msg.text == "🛠️ Support")
 def user_support_handler(message):
     user_id = message.chat.id
@@ -233,7 +223,6 @@ def user_support_handler(message):
     save_user_to_sheet(user_id, username)
     bot.reply_to(message, "🎧 **কাস্টমার সাপোর্ট:**\n\nযেকোনো সমস্যায় সরাসরি অ্যাডমিনের সাথে যোগাযোগ করুন: @Mafi5661", parse_mode="Markdown")
 
-# --- Toggle Collecting Status ---
 @bot.message_handler(func=lambda msg: msg.chat.id == ADMIN_ID and msg.text in ["🟢 Start Collecting", "🔴 Stop Collecting"])
 def toggle_collecting(message):
     current_status = get_bot_status()
@@ -244,7 +233,7 @@ def toggle_collecting(message):
     all_user_ids = get_all_registered_users()
 
     if new_status == "OFF":
-        notice_text = "📢 **নোটিশ:**\n\nফাইল গ্রহণ আপাতত বন্ধ করা হয়েছে! 🔴\nপরবর্তী নোটিশ না দেওয়া পর্যন্ত নতুন কোনো ফাইল জমা নেওয়া হবে fix না।"
+        notice_text = "📢 **নোটিশ:**\n\nফাইল গ্রহণ আপাতত বন্ধ করা হয়েছে! 🔴\nপরবর্তী নোটিশ না দেওয়া পর্যন্ত নতুন কোনো ফাইল জমা নেওয়া হবে না।"
     else:
         notice_text = "📢 **নোটিশ:**\n\nফাইল কালেকশন শুরু হয়েছে! 🟢\nএখন থেকে নিয়মিত ফাইল জমা দিতে পারবেন।"
 
@@ -258,7 +247,6 @@ def toggle_collecting(message):
             pass
     bot.reply_to(message, f"📢 নোটিশ সফলভাবে মোট **{success_cnt}** জন ইউজারের কাছে পাঠানো হয়েছে।")
 
-# --- File Submit Logic ---
 @bot.message_handler(func=lambda msg: msg.text == "📝 Submit File")
 def submit_prompt(message):
     user_id = str(message.chat.id)
@@ -364,6 +352,8 @@ def admin_report_handler(message):
                 good_accounts.add(clean_value(row[7]))
 
         user_stats = {} 
+        filtered_good_rows = [] # গুড অ্যাকাউন্টগুলোর ডাটা স্টোর করার জন্য
+
         for row in all_data[1:]:
             if len(row) >= 4 and row[0]:
                 col_a = clean_value(row[0])
@@ -376,8 +366,12 @@ def admin_report_handler(message):
                 user_stats[u_id]["total"] += 1
                 if col_a in good_accounts:
                     user_stats[u_id]["ok"] += 1
+                    
+                    # ফিল্টার করা এক্সেল ফাইলের জন্য শুধু OK অ্যাকাউন্টগুলোর ডাটা নেওয়া হচ্ছে
+                    col_b = clean_value(row[1]) if len(row) > 1 else ""
+                    col_c = clean_value(row[2]) if len(row) > 2 else ""
+                    filtered_good_rows.append([col_a, col_b, col_c, u_id, u_name])
 
-        # all number শিট থেকে ইউজারদের বিকাশ নম্বর নেওয়া হচ্ছে
         s_payments_data = sheet_all_number.get_all_values()
         existing_users_map = {}
         if len(s_payments_data) > 1:
@@ -400,7 +394,6 @@ def admin_report_handler(message):
         for u_id, info in existing_users_map.items():
             ok_count = user_stats[u_id]["ok"] if u_id in user_stats else 0
             
-            # শুধুমাত্র যারা পেমেন্ট পাবে তাদেরকে payments শিটে এড করা হচ্ছে 
             if ok_count > 0:
                 total_pay = ok_count * PER_TASK_RATE
                 row_data = [u_id, info["username"], info["bikash"], ok_count, PER_TASK_RATE, total_pay, REPORT_DATE, info["confirmation"]]
@@ -424,9 +417,9 @@ def admin_report_handler(message):
         else:
             sheet_payments.update("A1:H1", [final_rows[0]])
 
-        # অ্যাডমিনকে ফিল্টার করা এক্সেল ফাইল পাঠানো
+        # অ্যাডমিনকে শুধুমাত্র গুড অ্যাকাউন্টের ডাটা দিয়ে ফিল্টার করা এক্সেল ফাইল পাঠানো
         try:
-            df = pd.DataFrame(combined_rows, columns=["User ID", "Username", "Bikash Number", "Total OK", "Rate", "Total Payment", "Date", "confirmation"])
+            df = pd.DataFrame(filtered_good_rows, columns=["Col_A", "Col_B", "Col_C", "UserID", "Username"])
             file_name = "Filtered_Report.xlsx"
             file_path = os.path.join(BASE_DIR, file_name)
             df.to_excel(file_path, index=False)
@@ -476,7 +469,6 @@ def send_broadcast_to_all(message):
     except Exception as e:
         bot.reply_to(message, f"❌ ব্রডকাস্ট পাঠাতে সমস্যা হয়েছে: {e}")
 
-# --- Clear Collecting Data Only ---
 @bot.message_handler(func=lambda msg: msg.chat.id == ADMIN_ID and msg.text == "🧹 Clear Data")
 def clear_data_handler(message):
     try:
@@ -489,7 +481,6 @@ def clear_data_handler(message):
     except Exception as e:
         bot.reply_to(message, f"❌ সমস্যা হয়েছে: {e}")
 
-# --- Delete Specific User Data ---
 @bot.message_handler(func=lambda msg: msg.chat.id == ADMIN_ID and msg.text == "🗑️ Delete User Data")
 def prompt_delete_user(message):
     msg = bot.reply_to(message, "📲 আপনি যে ইউজারের ডেটা ডিলিট করতে চান তার **User ID** টি লিখে পাঠান:")
@@ -532,7 +523,6 @@ def process_delete_user_data(message):
     except Exception as e:
         bot.reply_to(message, f"❌ ডেটা ডিলিট করতে সমস্যা হয়েছে: {e}")
 
-# --- Payment Done Handler ---
 @bot.message_handler(func=lambda msg: msg.chat.id == ADMIN_ID and msg.text == "💸 Payment Done")
 def payment_done_handler(message):
     bot.reply_to(message, "⏳ পেমেন্ট কমপ্লিট মেসেজ পাঠানো ও শিট আপডেট করা হচ্ছে...")
@@ -549,7 +539,7 @@ def payment_done_handler(message):
             if len(row) >= 8:
                 u_id = clean_value(row[0])
                 pay_amount = clean_value(row[5])
-                report_date = clean_value(row[6]) # Date কলাম (G) থেকে ডেট নেওয়া হচ্ছে
+                report_date = clean_value(row[6]) 
                 confirmation = clean_value(row[7])
                 
                 if u_id.isdigit() and confirmation.lower() == "done":
@@ -584,7 +574,7 @@ def payment_system_handler(message):
     save_user_to_sheet(user_id, username)
 
     try:
-        s_data = sheet_all_number.get_all_values() # all number থেকে চেক করবে
+        s_data = sheet_all_number.get_all_values()
         existing_bikash = ""
         for row in s_data[1:]:
             if len(row) > 0 and clean_value(row[0]) == user_id:
@@ -593,15 +583,17 @@ def payment_system_handler(message):
         
         if existing_bikash:
             markup = InlineKeyboardMarkup()
-            markup.row(InlineKeyboardButton("✏️ Edit", callback_data="edit_bikash"), InlineKeyboardButton("💾 Save", callback_data="save_bikash"))
+            markup.row(InlineKeyboardButton("✏️ Edit Bikash", callback_data="select_bikash"), InlineKeyboardButton("💾 Save", callback_data="save_bikash"))
             bot.reply_to(message, f"💳 আপনার রানিং বিকাশ নম্বর: **{existing_bikash}**\n\nএটি কি ঠিক আছে, নাকি পরিবর্তন করতে চান?", reply_markup=markup)
         else:
-            msg = bot.reply_to(message, "📲 আপনার বিকাশ নম্বরটি লিখে পাঠান:")
-            bot.register_next_step_handler(msg, save_bikash_number)
+            # সরাসরি নম্বর না চেয়ে পেমেন্ট মেথড সিলেক্ট করতে বলবে
+            markup = InlineKeyboardMarkup()
+            markup.row(InlineKeyboardButton("🟣 bKash", callback_data="select_bikash"))
+            bot.reply_to(message, "পেমেন্ট মেথড সিলেক্ট করুন:", reply_markup=markup)
     except Exception as e:
         bot.reply_to(message, f"❌ সমস্যা: {e}")
 
-@bot.callback_query_handler(func=lambda call: call.data in ["edit_bikash", "save_bikash"])
+@bot.callback_query_handler(func=lambda call: call.data in ["select_bikash", "save_bikash"])
 def payment_inline_callback(call):
     user_id = str(call.message.chat.id)
     try: 
@@ -609,8 +601,8 @@ def payment_inline_callback(call):
     except: 
         pass
 
-    if call.data == "edit_bikash":
-        msg = bot.send_message(user_id, "📲 নতুন বিকাশ নম্বরটি লিখে পাঠান:")
+    if call.data == "select_bikash":
+        msg = bot.send_message(user_id, "📲 আপনার বিকাশ নম্বরটি লিখে পাঠান:")
         bot.register_next_step_handler(msg, save_bikash_number)
     elif call.data == "save_bikash":
         bot.send_message(user_id, "✅ আপনার পেমেন্ট পদ্ধতি নিশ্চিত করা হয়েছে!")
@@ -643,7 +635,7 @@ def save_bikash_number(message):
             sheet_all_number.update_cell(row_index, 3, formatted_bikash)
             sheet_all_number.update_cell(row_index, 2, username)
         else:
-            sheet_all_number.append_row([user_id, username, formatted_bikash]) # নতুন নম্বর হলে যুক্ত করবে
+            sheet_all_number.append_row([user_id, username, formatted_bikash]) 
 
         bot.reply_to(message, f"✅ আপনার বিকাশ নম্বর (**{bikash_num}**) সফলভাবে সেভ করা হয়েছে।")
     except Exception as e:
