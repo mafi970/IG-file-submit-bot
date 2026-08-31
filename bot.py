@@ -4,12 +4,14 @@ import time
 import datetime
 import telebot
 import pandas as pd
+
 from telebot.types import (
     ReplyKeyboardMarkup,
     KeyboardButton,
     InlineKeyboardMarkup,
     InlineKeyboardButton
 )
+
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
@@ -249,19 +251,29 @@ def get_user_keyboard():
 
     markup.row(
         KeyboardButton(
-            "📝 Submit File",
-            style="success"
+            "💳 Payment System",
+            style="primary"
         ),
         KeyboardButton(
-            "💳 Payment System",
+            "🛠️ Support",
             style="primary"
         )
     )
 
+    return markup
+
+
+# ============================================================
+# SUBMIT FILE INLINE BUTTON
+# ============================================================
+def get_submit_file_keyboard():
+    markup = InlineKeyboardMarkup()
+
     markup.row(
-        KeyboardButton(
-            "🛠️ Support",
-            style="primary"
+        InlineKeyboardButton(
+            "📝 Submit File",
+            callback_data="submit_file",
+            style="success"
         )
     )
 
@@ -345,7 +357,8 @@ def load_welcome_msg():
     ):
         with open(
             WELCOME_CONFIG_FILE,
-            "r"
+            "r",
+            encoding="utf-8"
         ) as f:
             return json.load(f)
 
@@ -355,7 +368,8 @@ def load_welcome_msg():
 def save_welcome_msg(message_id):
     with open(
         WELCOME_CONFIG_FILE,
-        "w"
+        "w",
+        encoding="utf-8"
     ) as f:
         json.dump(
             {
@@ -403,10 +417,22 @@ def start_cmd(message):
             and "message_id" in welcome_data
         ):
             try:
+
                 bot.copy_message(
                     chat_id=user_id,
                     from_chat_id=ADMIN_ID,
-                    message_id=welcome_data["message_id"],
+                    message_id=welcome_data["message_id"]
+                )
+
+                bot.send_message(
+                    user_id,
+                    "📂 কাজ জমা দিতে নিচের বাটনে চাপুন:",
+                    reply_markup=get_submit_file_keyboard()
+                )
+
+                bot.send_message(
+                    user_id,
+                    "💳 পেমেন্ট ও সাপোর্টের জন্য নিচের অপশন ব্যবহার করুন:",
                     reply_markup=get_user_keyboard()
                 )
 
@@ -424,8 +450,8 @@ def start_cmd(message):
             "১. কাজ জমা দেওয়ার আগে "
             "**'💳 Payment System'** এ গিয়ে "
             "বিকাশ নম্বর সেট করুন।\n"
-            "২. এরপর "
-            "**'📝 Submit File'** অপশন চাপ দিয়ে "
+            "২. এরপর নিচের "
+            "**'📝 Submit File'** বাটন চাপ দিয়ে "
             "Excel (.xlsx) ফাইল জমা দিন।"
         )
 
@@ -433,6 +459,12 @@ def start_cmd(message):
             user_id,
             welcome_user,
             parse_mode="Markdown",
+            reply_markup=get_submit_file_keyboard()
+        )
+
+        bot.send_message(
+            user_id,
+            "💳 পেমেন্ট ও সাপোর্টের জন্য নিচের অপশন ব্যবহার করুন:",
             reply_markup=get_user_keyboard()
         )
 
@@ -460,6 +492,7 @@ def prompt_welcome_msg(message):
 def save_custom_welcome(message):
 
     try:
+
         save_welcome_msg(
             message.message_id
         )
@@ -470,6 +503,7 @@ def save_custom_welcome(message):
         )
 
     except Exception as e:
+
         bot.reply_to(
             message,
             f"❌ সমস্যা হয়েছে: {e}"
@@ -654,33 +688,21 @@ def toggle_collecting(message):
 
 
 # ============================================================
-# SUBMIT FILE (Inline Keyboard & Status Check Integrated)
+# SUBMIT FILE CALLBACK
 # ============================================================
-def submit_keyboard():
-    markup = InlineKeyboardMarkup()
-    markup.add(
-        InlineKeyboardButton(
-            "📝 Submit File",
-            callback_data="submit_file",
-            style="success"
-        )
-    )
-    return markup
-
-
-@bot.message_handler(
-    func=lambda msg:
-    msg.text == "📝 Submit File"
+@bot.callback_query_handler(
+    func=lambda call:
+    call.data == "submit_file"
 )
-def submit_prompt(message):
+def submit_file_callback(call):
 
     user_id = str(
-        message.chat.id
+        call.message.chat.id
     )
 
     username = (
-        message.from_user.username
-        or message.from_user.first_name
+        call.from_user.username
+        or call.from_user.first_name
     )
 
     save_user_to_sheet(
@@ -688,59 +710,39 @@ def submit_prompt(message):
         username
     )
 
-    if (
-        user_id != str(ADMIN_ID)
-        and not has_bikash_number(user_id)
-    ):
-
-        bot.reply_to(
-            message,
-            "⚠️ ফাইল জমার আগে "
-            "'💳 Payment System' এ "
-            "বিকাশ নম্বর সেভ করুন।"
-        )
-
-        return
-
-    # --------------------------------------------------------
     # FILE COLLECTION OFF
-    # --------------------------------------------------------
     if get_bot_status() == "OFF":
 
-        bot.reply_to(
-            message,
-            "❌ **বর্তমানে ফাইল রিসিভ করা বন্ধ আছে।**\n\n"
-            "কিছু সময় পর আবার চেষ্টা করুন।",
-            parse_mode="Markdown"
-        )
-
-        return
-
-    bot.reply_to(
-        message,
-        "👉 নিচের বাটনে চাপুন:",
-        reply_markup=submit_keyboard()
-    )
-
-
-@bot.callback_query_handler(
-    func=lambda call: call.data == "submit_file"
-)
-def submit_file_callback(call):
-
-    if get_bot_status() == "OFF":
         bot.answer_callback_query(
             call.id,
             "❌ বর্তমানে ফাইল রিসিভ করা বন্ধ আছে।",
             show_alert=True
         )
+
         return
 
-    bot.answer_callback_query(call.id)
+    # PAYMENT CHECK
+    if (
+        user_id != str(ADMIN_ID)
+        and not has_bikash_number(user_id)
+    ):
+
+        bot.answer_callback_query(
+            call.id,
+            "⚠️ আগে Payment System থেকে বিকাশ নম্বর সেভ করুন।",
+            show_alert=True
+        )
+
+        return
+
+    bot.answer_callback_query(
+        call.id
+    )
 
     bot.send_message(
         call.message.chat.id,
-        "👉 আপনার Excel (.xlsx) ফাইলটি এখন পাঠান।"
+        "👉 আপনার কাজের Excel (.xlsx) "
+        "ফাইলটি এখন সেন্ড করুন।"
     )
 
 
@@ -763,6 +765,14 @@ def handle_docs(message):
         username
     )
 
+    # FILE COLLECTION OFF
+    if get_bot_status() == "OFF":
+
+        return bot.reply_to(
+            message,
+            "❌ বর্তমানে ফাইল রিসিভ করা বন্ধ আছে।"
+        )
+
     if user_id != str(ADMIN_ID):
 
         if not has_bikash_number(user_id):
@@ -770,13 +780,6 @@ def handle_docs(message):
             return bot.reply_to(
                 message,
                 "⚠️ আগে বিকাশ নম্বর সেভ করুন।"
-            )
-
-        if get_bot_status() == "OFF":
-
-            return bot.reply_to(
-                message,
-                "❌ ফাইল কালেকশন বন্ধ।"
             )
 
     file_name = message.document.file_name
@@ -989,6 +992,11 @@ def handle_file_confirmation(call):
 
         if user_id in pending_file_uploads:
             del pending_file_uploads[user_id]
+
+        bot.answer_callback_query(
+            call.id,
+            "ফাইল জমা বাতিল করা হয়েছে।"
+        )
 
         bot.send_message(
             user_id,
@@ -1638,7 +1646,7 @@ def payment_done_handler(message):
                             "✅ **পেমেন্ট কমপ্লিট!**\n\n"
                             f"আপনার **{pay_amount} টাকা** "
                             "সফলভাবে আপনার দেওয়া "
-                            "বিকাশ নম্বরে পাঠানো হয়েছে。\n"
+                            "বিকাশ নম্বরে পাঠানো হয়েছে।\n"
                             f"📅 **রিপোর্টের তারিখ:** "
                             f"{report_date}\n\n"
                             "আমাদের সাথে কাজ করার জন্য ধন্যবাদ!"
@@ -1809,6 +1817,10 @@ def payment_inline_callback(call):
         pass
 
     if call.data == "select_bikash":
+
+        bot.answer_callback_query(
+            call.id
+        )
 
         msg = bot.send_message(
             user_id,
