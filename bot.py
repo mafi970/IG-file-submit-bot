@@ -104,7 +104,6 @@ def has_bikash_number(user_id):
         return False
 
 
-# ইউজার বট স্টার্ট বা ইন্টারঅ্যাক্ট করলেই সরাসরি 'all users' শিটে সেভ করার ফাংশন
 def save_user_to_sheet(user_id, username):
     try:
         user_id_str = str(user_id)
@@ -256,7 +255,6 @@ def check_user_membership(user_id):
         return False
 
 
-# ইউজার যদি চ্যানেলে জয়েন করা না থাকে, তবে তাকে ভেরিফিকেশন মেসেজ দেখানোর হেল্পার ফাংশন
 def verify_membership_or_warn(message):
     user_id = message.chat.id
     if user_id == ADMIN_ID:
@@ -267,8 +265,8 @@ def verify_membership_or_warn(message):
         markup.row(InlineKeyboardButton("✅ Verify", callback_data="verify_join", style="success"))
 
         verify_msg = (
-            "📢 **আমাদের সার্ভিসটি ব্যবহার করতে অবশ্যই নিচের চ্যানেল/গ্রুপগুলোতে যুক্ত হতে হবে।**\n\n"
-            "যুক্ত হওয়ার পর **'Verify'** বাটনে ক্লিক করুন।"
+            "**📢 আমাদের সার্ভিসটি ব্যবহার করতে অবশ্যই নিচের চ্যানেল/গ্রুপগুলোতে যুক্ত হতে হবে।\n\n"
+            "যুক্ত হওয়ার পর 'Verify' বাটনে ক্লিক করুন।**"
         )
         bot.send_message(
             user_id,
@@ -281,7 +279,7 @@ def verify_membership_or_warn(message):
 
 
 # ============================================================
-# USER KEYBOARD (Submit File & Payment System: Green, Support: Red)
+# USER KEYBOARD
 # ============================================================
 def get_user_keyboard():
     markup = ReplyKeyboardMarkup(
@@ -428,10 +426,10 @@ def send_welcome_content(user_id, message):
 
     first_name = message.from_user.first_name if hasattr(message, 'from_user') and message.from_user else "ইউজার"
     welcome_user = (
-        f"👋 **আসসালামু আলাইকুম, {first_name}!**\n\n"
-        "🎉 **আমাদের বটে আপনাকে স্বাগতম!**\n\n"
-        "১. কাজ জমা দেওয়ার আগে **'💳 Payment System'** এ গিয়ে বিকাশ নম্বর সেট করুন।\n"
-        "২. এরপর **'📝 Submit File'** অপশন চাপ দিয়ে Excel (.xlsx) ফাইল জমা দিন।"
+        f"**👋 আসসালামু আলাইকুম, {first_name}!\n\n"
+        "🎉 আমাদের বটে আপনাকে স্বাগতম!\n\n"
+        "১. কাজ জমা দেওয়ার আগে '💳 Payment System' এ গিয়ে বিকাশ নম্বর সেট করুন।\n"
+        "২. এরপর '📝 Submit File' অপশন চাপ দিয়ে Excel (.xlsx) ফাইল জমা দিন।**"
     )
 
     bot.send_message(
@@ -457,8 +455,8 @@ def start_cmd(message):
 
     if user_id == ADMIN_ID:
         welcome_admin = (
-            "👑 **অ্যাডমিন প্যানেলে স্বাগতম!**\n\n"
-            "বট সফলভাবে রানিং রয়েছে।"
+            "**👑 অ্যাডমিন প্যানেলে স্বাগতম!\n\n"
+            "বট সফলভাবে রানিং রয়েছে।**"
         )
         bot.send_message(
             user_id,
@@ -468,15 +466,14 @@ def start_cmd(message):
         )
         return
 
-    # নতুন বা পুরানো ইউজারদের জন্য চ্যানেল ভেরিফিকেশন চেক
     if not check_user_membership(user_id):
         markup = InlineKeyboardMarkup()
         markup.row(InlineKeyboardButton(CHANNEL_NAME, url=CHANNEL_LINK))
         markup.row(InlineKeyboardButton("✅ Verify", callback_data="verify_join", style="success"))
 
         verify_msg = (
-            "📢 **আমাদের সার্ভিসটি ব্যবহার করতে অবশ্যই নিচের চ্যানেল/গ্রুপগুলোতে যুক্ত হতে হবে।**\n\n"
-            "যুক্ত হওয়ার পর **'Verify'** বাটনে ক্লিক করুন।"
+            "**📢 আমাদের সার্ভিসটি ব্যবহার করতে অবশ্যই নিচের চ্যানেল/গ্রুপগুলোতে যুক্ত হতে হবে।\n\n"
+            "যুক্ত হওয়ার পর 'Verify' বাটনে ক্লিক করুন।**"
         )
         bot.send_message(
             user_id,
@@ -511,8 +508,8 @@ def verify_join_callback(call):
 def prompt_welcome_msg(message):
     msg = bot.reply_to(
         message,
-        "📝 **নতুন ওয়েলকাম মেসেজ সেট করুন:**\n\n"
-        "আপনি ইউজারদের যে মেসেজ দেখাতে চান, সেটি সেন্ড বা ফরওয়ার্ড করুন.",
+        "**📝 নতুন ওয়েলকাম মেসেজ সেট করুন:\n\n"
+        "আপনি ইউজারদের যে মেসেজ দেখাতে চান, সেটি সেন্ড বা ফরওয়ার্ড করুন।**",
         parse_mode="Markdown"
     )
 
@@ -530,14 +527,14 @@ def save_custom_welcome(message):
 
         bot.reply_to(
             message,
-            "✅ **ওয়েলকাম মেসেজ সফলভাবে সেভ হয়েছে!**",
+            "**✅ ওয়েলকাম মেসেজ সফলভাবে সেভ হয়েছে!**",
             parse_mode="Markdown"
         )
 
     except Exception as e:
         bot.reply_to(
             message,
-            f"❌ **সমস্যা হয়েছে:** {e}",
+            f"**❌ সমস্যা হয়েছে: {e}**",
             parse_mode="Markdown"
         )
 
@@ -550,7 +547,7 @@ def save_custom_welcome(message):
 def prompt_message_user(message):
     msg = bot.reply_to(
         message,
-        "📲 **আপনি যে ইউজারকে মেসেজ পাঠাতে চান, তার User ID টি এখানে লিখুন:**",
+        "**📲 আপনি যে ইউজারকে মেসেজ পাঠাতে চান, তার User ID টি এখানে লিখুন:**",
         parse_mode="Markdown"
     )
 
@@ -566,14 +563,14 @@ def prompt_message_content(message):
     if not target_id.isdigit():
         bot.reply_to(
             message,
-            "❌ **ভুল User ID! শুধুমাত্র সংখ্যা দিন।**",
+            "**❌ ভুল User ID! শুধুমাত্র সংখ্যা দিন।**",
             parse_mode="Markdown"
         )
         return
 
     msg = bot.reply_to(
         message,
-        f"✉️ **User ID **{target_id}** কে কী পাঠাতে চান? মেসেজ বা ছবি সেন্ড করুন:**",
+        f"**✉️ User ID {target_id} কে কী পাঠাতে চান? মেসেজ বা ছবি সেন্ড করুন:**",
         parse_mode="Markdown"
     )
 
@@ -600,14 +597,14 @@ def send_specific_user_msg(
 
         bot.reply_to(
             message,
-            f"✅ **User ID **{target_id}** এর কাছে মেসেজ সফলভাবে পাঠানো হয়েছে!**",
+            f"**✅ User ID {target_id} এর কাছে মেসেজ সফলভাবে পাঠানো হয়েছে!**",
             parse_mode="Markdown"
         )
 
     except Exception as e:
         bot.reply_to(
             message,
-            f"❌ **সমস্যা হয়েছে:** {e}",
+            f"**❌ সমস্যা হয়েছে: {e}**",
             parse_mode="Markdown"
         )
 
@@ -633,8 +630,8 @@ def user_support_handler(message):
 
     bot.reply_to(
         message,
-        "🎧 **কাস্টমার সাপোর্ট:**\n\n"
-        "যেকোনো সমস্যায় সরাসরি অ্যাডমিনের সাথে যোগাযোগ করুন: @Mafi5661",
+        "**🎧 কাস্টমার সাপোর্ট:\n\n"
+        "যেকোনো সমস্যায় সরাসরি অ্যাডমিনের সাথে যোগাযোগ করুন: @Mafi5661**",
         parse_mode="Markdown"
     )
 
@@ -662,7 +659,7 @@ def toggle_collecting(message):
 
     bot.send_message(
         ADMIN_ID,
-        f"✅ **ফাইল কালেকশন এখন **{new_status}** করা হয়েছে।**",
+        f"**✅ ফাইল কালেকশন এখন {new_status} করা হয়েছে।**",
         parse_mode="Markdown",
         reply_markup=get_admin_keyboard()
     )
@@ -671,15 +668,15 @@ def toggle_collecting(message):
 
     if new_status == "OFF":
         notice_text = (
-            "📢 **নোটিশ:**\n\n"
+            "**📢 নোটিশ:\n\n"
             "ফাইল গ্রহণ আপাতত বন্ধ করা হয়েছে! 🔴\n"
-            "পরবর্তী নোটিশ না দেওয়া পর্যন্ত নতুন কোনো ফাইল জমা নেওয়া হবে না।"
+            "পরবর্তী নোটিশ না দেওয়া পর্যন্ত নতুন কোনো ফাইল জমা নেওয়া হবে না।**"
         )
     else:
         notice_text = (
-            "📢 **নোটিশ:**\n\n"
+            "**📢 নোটিশ:\n\n"
             "ফাইল কালেকশন শুরু হয়েছে! 🟢\n"
-            "এখন থেকে নিয়মিত ফাইল জমা দিতে পারবেন।"
+            "এখন থেকে নিয়মিত ফাইল জমা দিতে পারবেন।**"
         )
 
     success_cnt = 0
@@ -698,13 +695,13 @@ def toggle_collecting(message):
 
     bot.reply_to(
         message,
-        f"📢 **নোটিশ সফলভাবে মোট **{success_cnt}** জন ইউজারের কাছে পাঠানো হয়েছে।**",
+        f"**📢 নোটিশ সফলভাবে মোট {success_cnt} জন ইউজারের কাছে পাঠানো হয়েছে।**",
         parse_mode="Markdown"
     )
 
 
 # ============================================================
-# SUBMIT FILE (Direct prompt without extra inline button)
+# SUBMIT FILE
 # ============================================================
 @bot.message_handler(
     func=lambda msg:
@@ -734,7 +731,7 @@ def submit_prompt(message):
     ):
         bot.reply_to(
             message,
-            "⚠️ **ফাইল জমার আগে '💳 Payment System' এ বিকাশ নম্বর সেভ করুন।**",
+            "**⚠️ ফাইল জমার আগে '💳 Payment System' এ বিকাশ নম্বর সেভ করুন।**",
             parse_mode="Markdown"
         )
         return
@@ -742,14 +739,14 @@ def submit_prompt(message):
     if get_bot_status() == "OFF":
         bot.reply_to(
             message,
-            "❌ **বর্তমানে ফাইল রিসিভ করা বন্ধ আছে।**\n\nকিছু সময় পর আবার চেষ্টা করুন।",
+            "**❌ বর্তমানে ফাইল রিসিভ করা বন্ধ আছে।\n\nকিছু সময় পর আবার চেষ্টা করুন।**",
             parse_mode="Markdown"
         )
         return
 
     bot.reply_to(
         message,
-        "👉 **আপনার Excel (.xlsx) ফাইলটি এখন পাঠান।**",
+        "**👉 আপনার Excel (.xlsx) ফাইলটি এখন পাঠান।**",
         parse_mode="Markdown"
     )
 
@@ -779,14 +776,14 @@ def handle_docs(message):
         if not has_bikash_number(user_id):
             return bot.reply_to(
                 message,
-                "⚠️ **আগে বিকাশ নম্বর সেভ করুন।**",
+                "**⚠️ আগে বিকাশ নম্বর সেভ করুন।**",
                 parse_mode="Markdown"
             )
 
         if get_bot_status() == "OFF":
             return bot.reply_to(
                 message,
-                "❌ **ফাইল কালেকশন বন্ধ।**",
+                "**❌ ফাইল কালেকশন বন্ধ।**",
                 parse_mode="Markdown"
             )
 
@@ -797,13 +794,13 @@ def handle_docs(message):
     ):
         return bot.reply_to(
             message,
-            "❌ **সঠিক Excel (.xlsx) ফাইল পাঠান।**",
+            "**❌ সঠিক Excel (.xlsx) ফাইল পাঠান।**",
             parse_mode="Markdown"
         )
 
     bot.reply_to(
         message,
-        "⏳ **ফাইলটি চেক করা হচ্ছে...**",
+        "**⏳ ফাইলটি চেক করা হচ্ছে...**",
         parse_mode="Markdown"
     )
 
@@ -872,7 +869,7 @@ def handle_docs(message):
 
         return bot.reply_to(
             message,
-            f"❌ **ফাইল রিড করতে সমস্যা:** {e}",
+            f"**❌ ফাইল রিড করতে সমস্যা: {e}**",
             parse_mode="Markdown"
         )
 
@@ -882,7 +879,7 @@ def handle_docs(message):
     if not rows_to_append:
         return bot.reply_to(
             message,
-            "⚠️ **ফাইলে কোনো ডেটা পাওয়া যায়নি।**",
+            "**⚠️ ফাইলে কোনো ডেটা পাওয়া যায়নি।**",
             parse_mode="Markdown"
         )
 
@@ -907,7 +904,7 @@ def handle_docs(message):
 
     bot.reply_to(
         message,
-        f"📊 **আপনার ফাইলে **{len(rows_to_append)}** টি অ্যাকাউন্ট পাওয়া গেছে। ফাইনাল জমা দিবেন?**",
+        f"**📊 আপনার ফাইলে {len(rows_to_append)} টি অ্যাকাউন্ট পাওয়া গেছে। ফাইনাল জমা দিবেন?**",
         parse_mode="Markdown",
         reply_markup=markup
     )
@@ -969,14 +966,14 @@ def handle_file_confirmation(call):
 
             bot.send_message(
                 user_id,
-                f"✅ **আপনার **{len(rows_data)}** টি অ্যাকাউন্ট সফলভাবে জমা হয়েছে!**",
+                f"**✅ আপনার {len(rows_data)} টি অ্যাকাউন্ট সফলভাবে জমা হয়েছে!**",
                 parse_mode="Markdown"
             )
 
         except Exception as e:
             bot.send_message(
                 user_id,
-                f"❌ **ডেটা সেভ করতে সমস্যা:** {e}",
+                f"**❌ ডেটা সেভ করতে সমস্যা: {e}**",
                 parse_mode="Markdown"
             )
 
@@ -989,7 +986,7 @@ def handle_file_confirmation(call):
 
         bot.send_message(
             user_id,
-            "❌ **ফাইল জমা দেওয়া বাতিল করা হয়েছে।**",
+            "**❌ ফাইল জমা দেওয়া বাতিল করা হয়েছে।**",
             parse_mode="Markdown"
         )
 
@@ -1005,7 +1002,7 @@ def handle_file_confirmation(call):
 def admin_report_handler(message):
     bot.reply_to(
         message,
-        "⏳ **'report' শিট থেকে ডেটা প্রসেস এবং পেমেন্ট হিসাব করা হচ্ছে...**",
+        "**⏳ 'report' শিট থেকে ডেটা প্রসেস এবং পেমেন্ট হিসাব করা হচ্ছে...**",
         parse_mode="Markdown"
     )
 
@@ -1015,7 +1012,7 @@ def admin_report_handler(message):
         if len(all_data) <= 1:
             return bot.reply_to(
                 message,
-                "⚠️ **'report' শিটে কোনো ডেটা নেই।**",
+                "**⚠️ 'report' শিটে কোনো ডেটা নেই।**",
                 parse_mode="Markdown"
             )
 
@@ -1244,7 +1241,7 @@ def admin_report_handler(message):
                 "rb"
             ) as f:
                 caption_text = (
-                    f"📂 **ফিল্টার করা রেজাল্ট ফাইল (তারিখ: {REPORT_DATE})।**"
+                    f"**📂 ফিল্টার করা রেজাল্ট ফাইল (তারিখ: {REPORT_DATE})।**"
                 )
 
                 bot.send_document(
@@ -1259,7 +1256,7 @@ def admin_report_handler(message):
         except Exception as e:
             bot.send_message(
                 message.chat.id,
-                f"❌ **এক্সেল ফাইল তৈরি করতে সমস্যা:** {e}",
+                f"**❌ এক্সেল ফাইল তৈরি করতে সমস্যা: {e}**",
                 parse_mode="Markdown"
             )
 
@@ -1273,10 +1270,10 @@ def admin_report_handler(message):
 
                     bot.send_message(
                         int(u_id),
-                        f"📊 **রিপোর্ট ({REPORT_DATE}):**\n"
-                        f"📌 মোট জমা: **{stats['total']}** টি\n"
-                        f"✅ OK: **{stats['ok']}** টি\n"
-                        f"💰 পেমেন্ট: **{pay_amount} টাকা**",
+                        f"**📊 রিপোর্ট ({REPORT_DATE}):\n"
+                        f"📌 মোট জমা: {stats['total']} টি\n"
+                        f"✅ OK: {stats['ok']} টি\n"
+                        f"💰 পেমেন্ট: {pay_amount} টাকা**",
                         parse_mode="Markdown"
                     )
                 except:
@@ -1284,14 +1281,14 @@ def admin_report_handler(message):
 
         bot.reply_to(
             message,
-            "✅ **রিপোর্ট সফলভাবে তৈরি হয়েছে, পেমেন্ট পাওয়া ইউজারদের উপরে ও সবুজ রঙ করা হয়েছে এবং এক্সেল ফাইল পাঠানো হয়েছে!**",
+            "**✅ রিপোর্ট সফলভাবে তৈরি হয়েছে, পেমেন্ট পাওয়া ইউজারদের উপরে ও সবুজ রঙ করা হয়েছে এবং এক্সেল ফাইল পাঠানো হয়েছে!**",
             parse_mode="Markdown"
         )
 
     except Exception as e:
         bot.reply_to(
             message,
-            f"❌ **রিপোর্ট তৈরি করতে সমস্যা:** {e}",
+            f"**❌ রিপোর্ট তৈরি করতে সমস্যা: {e}**",
             parse_mode="Markdown"
         )
 
@@ -1307,7 +1304,7 @@ def admin_report_handler(message):
 def broadcast_prompt(message):
     msg = bot.reply_to(
         message,
-        "📢 **আপনি সকল ইউজারের কাছে যে মেসেজ বা ছবি/ভিডিও পাঠাতে চান তা এখানে সেন্ড করুন:**",
+        "**📢 আপনি সকল ইউজারের কাছে যে মেসেজ বা ছবি/ভিডিও পাঠাতে চান তা এখানে সেন্ড করুন:**",
         parse_mode="Markdown"
     )
 
@@ -1340,16 +1337,16 @@ def send_broadcast_to_all(message):
 
         bot.reply_to(
             message,
-            f"✅ **ব্রডকাস্ট সফল!**\n\n"
-            f"🟢 সফল হয়েছে: **{success_count}** জনের কাছে\n"
-            f"🔴 ফেইল হয়েছে: **{fail_count}** জনের কাছে",
+            f"**✅ ব্রডকাস্ট সফল!\n\n"
+            f"🟢 সফল হয়েছে: {success_count} জনের কাছে\n"
+            f"🔴 ফেইল হয়েছে: {fail_count} জনের কাছে**",
             parse_mode="Markdown"
         )
 
     except Exception as e:
         bot.reply_to(
             message,
-            f"❌ **ব্রডকাস্ট পাঠাতে সমস্যা হয়েছে:** {e}",
+            f"**❌ ব্রডকাস্ট পাঠাতে সমস্যা হয়েছে: {e}**",
             parse_mode="Markdown"
         )
 
@@ -1373,20 +1370,20 @@ def clear_data_handler(message):
 
             bot.reply_to(
                 message,
-                "✅ **Row 1 ঠিক রেখে 'collecting' শিটের ডেটা পরিষ্কার করা হয়েছে।**",
+                "**✅ Row 1 ঠিক রেখে 'collecting' শিটের ডেটা পরিষ্কার করা হয়েছে।**",
                 parse_mode="Markdown"
             )
         else:
             bot.reply_to(
                 message,
-                "⚠️ **'collecting' শিটে ডিলিট করার মতো ডেটা নেই।**",
+                "**⚠️ 'collecting' শিটে ডিলিট করার মতো ডেটা নেই।**",
                 parse_mode="Markdown"
             )
 
     except Exception as e:
         bot.reply_to(
             message,
-            f"❌ **সমস্যা হয়েছে:** {e}",
+            f"**❌ সমস্যা হয়েছে: {e}**",
             parse_mode="Markdown"
         )
 
@@ -1399,7 +1396,7 @@ def clear_data_handler(message):
 def prompt_delete_user(message):
     msg = bot.reply_to(
         message,
-        "📲 **আপনি যে ইউজারের ডেটা ডিলিট করতে চান তার User ID টি লিখে পাঠান:**",
+        "**📲 আপনি যে ইউজারের ডেটা ডিলিট করতে চান তার User ID টি লিখে পাঠান:**",
         parse_mode="Markdown"
     )
 
@@ -1417,14 +1414,14 @@ def process_delete_user_data(message):
     if not target_uid.isdigit():
         bot.reply_to(
             message,
-            "❌ **ভুল User ID! শুধুমাত্র সংখ্যা দিন।**",
+            "**❌ ভুল User ID! শুধুমাত্র সংখ্যা দিন।**",
             parse_mode="Markdown"
         )
         return
 
     bot.reply_to(
         message,
-        f"⏳ **User ID: **{target_uid}** এর ডেটা 'collecting' শিট থেকে ডিলিট করা হচ্ছে...**",
+        f"**⏳ User ID: {target_uid} এর ডেটা 'collecting' শিট থেকে ডিলিট করা হচ্ছে...**",
         parse_mode="Markdown"
     )
 
@@ -1436,7 +1433,7 @@ def process_delete_user_data(message):
         if len(all_data) <= 1:
             bot.reply_to(
                 message,
-                "⚠️ **শিটে ডিলিট করার মতো কোনো ডেটা নেই।**",
+                "**⚠️ শিটে ডিলিট করার মতো কোনো ডেটা নেই।**",
                 parse_mode="Markdown"
             )
             return
@@ -1467,7 +1464,7 @@ def process_delete_user_data(message):
         if deleted_count == 0:
             bot.reply_to(
                 message,
-                f"⚠️ **User ID **{target_uid}** এর কোনো ডেটা পাওয়া যায়নি।**",
+                f"**⚠️ User ID {target_uid} এর কোনো ডেটা পাওয়া যায়নি।**",
                 parse_mode="Markdown"
             )
             return
@@ -1481,14 +1478,14 @@ def process_delete_user_data(message):
 
         bot.reply_to(
             message,
-            f"✅ **সফলভাবে User ID **{target_uid}** এর মোট **{deleted_count}** টি রো ডিলিট করা হয়েছে!**",
+            f"**✅ সফলভাবে User ID {target_uid} এর মোট {deleted_count} টি রো ডিলিট করা হয়েছে!**",
             parse_mode="Markdown"
         )
 
     except Exception as e:
         bot.reply_to(
             message,
-            f"❌ **ডেটা ডিলিট করতে সমস্যা হয়েছে:** {e}",
+            f"**❌ ডেটা ডিলিট করতে সমস্যা হয়েছে: {e}**",
             parse_mode="Markdown"
         )
 
@@ -1501,7 +1498,7 @@ def process_delete_user_data(message):
 def payment_done_handler(message):
     bot.reply_to(
         message,
-        "⏳ **পেমেন্ট কমপ্লিট মেসেজ পাঠানো ও শিট আপডেট করা হচ্ছে...**",
+        "**⏳ পেমেন্ট কমপ্লিট মেসেজ পাঠানো ও শিট আপডেট করা হচ্ছে...**",
         parse_mode="Markdown"
     )
 
@@ -1513,7 +1510,7 @@ def payment_done_handler(message):
         if len(s_data) <= 1:
             bot.reply_to(
                 message,
-                "⚠️ **পেমেন্ট শিটে কোনো ডেটা নেই।**",
+                "**⚠️ পেমেন্ট শিটে কোনো ডেটা নেই।**",
                 parse_mode="Markdown"
             )
             return
@@ -1555,10 +1552,10 @@ def payment_done_handler(message):
                 ):
                     try:
                         msg_text = (
-                            "✅ **পেমেন্ট কমপ্লিট!**\n\n"
-                            f"আপনার **{pay_amount} টাকা** সফলভাবে আপনার দেওয়া বিকাশ নম্বরে পাঠানো হয়েছে。\n"
-                            f"📅 **রিপোর্টের তারিখ:** {report_date}\n\n"
-                            "আমাদের সাথে কাজ করার জন্য ধন্যবাদ!"
+                            "**✅ পেমেন্ট কমপ্লিট!\n\n"
+                            f"আপনার {pay_amount} টাকা সফলভাবে আপনার দেওয়া বিকাশ নম্বরে পাঠানো হয়েছে。\n"
+                            f"📅 রিপোর্টের তারিখ: {report_date}\n\n"
+                            "আমাদের সাথে কাজ করার জন্য ধন্যবাদ!**"
                         )
 
                         bot.send_message(
@@ -1581,26 +1578,26 @@ def payment_done_handler(message):
         if success_count > 0:
             bot.reply_to(
                 message,
-                f"✅ **সফলভাবে **{success_count}** জনকে পেমেন্ট মেসেজ পাঠানো হয়েছে!**",
+                f"**✅ সফলভাবে {success_count} জনকে পেমেন্ট মেসেজ পাঠানো হয়েছে!**",
                 parse_mode="Markdown"
             )
         else:
             bot.reply_to(
                 message,
-                "⚠️ **কাউকেই মেসেজ পাঠানো হয়নি। নিশ্চিত করুন যে 'payments' শিটের H কলামে 'done' লেখা আছে।**",
+                "**⚠️ কাউকেই মেসেজ পাঠানো হয়নি। নিশ্চিত করুন যে 'payments' শিটের H কলামে 'done' লেখা আছে।**",
                 parse_mode="Markdown"
             )
 
     except Exception as e:
         bot.reply_to(
             message,
-            f"❌ **মেসেজ পাঠাতে সমস্যা হয়েছে:** {e}",
+            f"**❌ মেসেজ পাঠাতে সমস্যা হয়েছে: {e}**",
             parse_mode="Markdown"
         )
 
 
 # ============================================================
-# Payment System (Auto remove old message & show success)
+# Payment System
 # ============================================================
 @bot.message_handler(
     func=lambda msg:
@@ -1659,8 +1656,8 @@ def payment_system_handler(message):
 
             bot.reply_to(
                 message,
-                f"💳 **আপনার রানিং বিকাশ নম্বর:** **{existing_bikash}**\n\n"
-                "এটি কি ঠিক আছে, নাকি পরিবর্তন করতে চান?",
+                f"**💳 আপনার রানিং বিকাশ নম্বর: {existing_bikash}\n\n"
+                "এটি কি ঠিক আছে, নাকি পরিবর্তন করতে চান?**",
                 parse_mode="Markdown",
                 reply_markup=markup
             )
@@ -1678,7 +1675,7 @@ def payment_system_handler(message):
 
             bot.reply_to(
                 message,
-                "💳 **পেমেন্ট মেথড সিলেক্ট করুন:**",
+                "**💳 পেমেন্ট মেথড সিলেক্ট করুন:**",
                 parse_mode="Markdown",
                 reply_markup=markup
             )
@@ -1686,7 +1683,7 @@ def payment_system_handler(message):
     except Exception as e:
         bot.reply_to(
             message,
-            f"❌ **সমস্যা:** {e}",
+            f"**❌ সমস্যা: {e}**",
             parse_mode="Markdown"
         )
 
@@ -1703,7 +1700,6 @@ def payment_inline_callback(call):
         call.message.chat.id
     )
 
-    # আগের মেসেজটি অটো রিমুভ করা
     try:
         bot.delete_message(
             chat_id=user_id,
@@ -1722,7 +1718,7 @@ def payment_inline_callback(call):
     if call.data == "select_bikash":
         msg = bot.send_message(
             user_id,
-            "📲 **আপনার বিকাশ নম্বরটি লিখে পাঠান:**",
+            "**📲 আপনার বিকাশ নম্বরটি লিখে পাঠান:**",
             parse_mode="Markdown"
         )
 
@@ -1740,7 +1736,7 @@ def payment_inline_callback(call):
 
         bot.send_message(
             user_id,
-            "✅ **আপনার পেমেন্ট পদ্ধতি সফলভাবে নিশ্চিত করা হয়েছে!**",
+            "**✅ আপনার পেমেন্ট পদ্ধতি সফলভাবে নিশ্চিত করা হয়েছে!**",
             parse_mode="Markdown"
         )
 
@@ -1770,7 +1766,7 @@ def save_bikash_number(message):
     ):
         return bot.reply_to(
             message,
-            "❌ **ভুল নম্বর! সঠিক ১১ ডিজিটের বিকাশ নম্বর দিন।**",
+            "**❌ ভুল নম্বর! সঠিক ১১ ডিজিটের বিকাশ নম্বর দিন।**",
             parse_mode="Markdown"
         )
 
@@ -1836,14 +1832,14 @@ def save_bikash_number(message):
 
         bot.reply_to(
             message,
-            f"✅ **আপনার বিকাশ নম্বর (**{bikash_num}**) সফলভাবে সেভ করা হয়েছে।**",
+            f"**✅ আপনার বিকাশ নম্বর ({bikash_num}) সফলভাবে সেভ করা হয়েছে।**",
             parse_mode="Markdown"
         )
 
     except Exception as e:
         bot.reply_to(
             message,
-            f"❌ **সমস্যা:** {e}",
+            f"**❌ সমস্যা: {e}**",
             parse_mode="Markdown"
         )
 
@@ -1860,9 +1856,9 @@ def check_status(message):
 
     bot.send_message(
         ADMIN_ID,
-        f"🟢 **স্ট্যাটাস:** **{get_bot_status()}**\n"
-        f"💰 **রেট:** **{rate}**\n"
-        f"📅 **তারিখ:** **{date_val}**",
+        f"**🟢 স্ট্যাটাস: {get_bot_status()}\n"
+        f"💰 রেট: {rate}\n"
+        f"📅 তারিখ: {date_val}**",
         parse_mode="Markdown"
     )
 
