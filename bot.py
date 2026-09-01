@@ -20,10 +20,10 @@ ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 SPREADSHEET_URL = os.getenv("SPREADSHEET_URL")
 CREDENTIALS_JSON = os.getenv("CREDENTIALS_JSON")
 
-# চ্যানেল ভেরিফিকেশন কনফিগারেশন (আপনার চ্যানেল বা গ্রুপের নাম ও লিংক এখানে দিন)
-CHANNEL_USERNAME = "@YourChannelUsername"
-CHANNEL_LINK = "https://t.me/YourChannelLink"
-CHANNEL_NAME = "📢 All Updates"
+# চ্যানেল ভেরিফিকেশন কনফিগারেশন
+CHANNEL_USERNAME = "@EasyEarnMatrix"
+CHANNEL_LINK = "https://t.me/EasyEarnMatrix"
+CHANNEL_NAME = "Easy Earn Matrix🌐"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 WELCOME_CONFIG_FILE = os.path.join(BASE_DIR, "welcome_config.json")
@@ -253,7 +253,31 @@ def check_user_membership(user_id):
         return False
     except Exception as e:
         print(f"Membership check error: {e}")
+        return False
+
+
+# ইউজার যদি চ্যানেলে জয়েন করা না থাকে, তবে তাকে ভেরিফিকেশন মেসেজ দেখানোর হেল্পার ফাংশন
+def verify_membership_or_warn(message):
+    user_id = message.chat.id
+    if user_id == ADMIN_ID:
         return True
+    if not check_user_membership(user_id):
+        markup = InlineKeyboardMarkup()
+        markup.row(InlineKeyboardButton(CHANNEL_NAME, url=CHANNEL_LINK))
+        markup.row(InlineKeyboardButton("✅ Verify", callback_data="verify_join", style="success"))
+
+        verify_msg = (
+            "📢 **আমাদের সার্ভিসটি ব্যবহার করতে অবশ্যই নিচের চ্যানেল/গ্রুপগুলোতে যুক্ত হতে হবে।**\n\n"
+            "যুক্ত হওয়ার পর **'Verify'** বাটনে ক্লিক করুন।"
+        )
+        bot.send_message(
+            user_id,
+            verify_msg,
+            parse_mode="Markdown",
+            reply_markup=markup
+        )
+        return False
+    return True
 
 
 # ============================================================
@@ -444,7 +468,7 @@ def start_cmd(message):
         )
         return
 
-    # নতুন ইউজারদের জন্য চ্যানেল ভেরিফিকেশন চেক
+    # নতুন বা পুরানো ইউজারদের জন্য চ্যানেল ভেরিফিকেশন চেক
     if not check_user_membership(user_id):
         markup = InlineKeyboardMarkup()
         markup.row(InlineKeyboardButton(CHANNEL_NAME, url=CHANNEL_LINK))
@@ -593,6 +617,9 @@ def send_specific_user_msg(
     msg.text == "🛠️ Support"
 )
 def user_support_handler(message):
+    if not verify_membership_or_warn(message):
+        return
+
     user_id = message.chat.id
     username = (
         message.from_user.username
@@ -684,6 +711,9 @@ def toggle_collecting(message):
     msg.text == "📝 Submit File"
 )
 def submit_prompt(message):
+    if not verify_membership_or_warn(message):
+        return
+
     user_id = str(
         message.chat.id
     )
@@ -728,6 +758,9 @@ def submit_prompt(message):
     content_types=['document']
 )
 def handle_docs(message):
+    if not verify_membership_or_warn(message):
+        return
+
     user_id = str(
         message.chat.id
     )
@@ -1523,7 +1556,7 @@ def payment_done_handler(message):
                     try:
                         msg_text = (
                             "✅ **পেমেন্ট কমপ্লিট!**\n\n"
-                            f"আপনার **{pay_amount} টাকা** সফলভাবে আপনার দেওয়া বিকাশ নম্বরে পাঠানো হয়েছে।\n"
+                            f"আপনার **{pay_amount} টাকা** সফলভাবে আপনার দেওয়া বিকাশ নম্বরে পাঠানো হয়েছে。\n"
                             f"📅 **রিপোর্টের তারিখ:** {report_date}\n\n"
                             "আমাদের সাথে কাজ করার জন্য ধন্যবাদ!"
                         )
@@ -1574,6 +1607,9 @@ def payment_done_handler(message):
     msg.text == "💳 Payment System"
 )
 def payment_system_handler(message):
+    if not verify_membership_or_warn(message):
+        return
+
     user_id = str(
         message.chat.id
     )
