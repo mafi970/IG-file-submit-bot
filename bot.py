@@ -265,7 +265,7 @@ def verify_membership_or_warn(message):
         markup.row(InlineKeyboardButton("✅ Verify", callback_data="verify_join", style="success"))
 
         verify_msg = (
-            "*📢 আমাদের সার্ভিসটি ব্যবহার করতে অবশ্যই নিচের চ্যানেল/গ্রুপগুলোতে যুক্ত হতে হবে।\n\n"
+            "*📢 আমাদের সার্ভিসটি ব্যবহার করতে অবশ্যই নিচের চ্যানেল/গ্রুপগুলোতে যুক্ত হতে হবে。\n\n"
             "যুক্ত হওয়ার পর 'Verify' বাটনে ক্লিক করুন।*"
         )
         bot.send_message(
@@ -472,7 +472,7 @@ def start_cmd(message):
         markup.row(InlineKeyboardButton("✅ Verify", callback_data="verify_join", style="success"))
 
         verify_msg = (
-            "*📢 আমাদের সার্ভিসটি ব্যবহার করতে অবশ্যই নিচের চ্যানেল/গ্রুপগুলোতে যুক্ত হতে হবে।\n\n"
+            "*📢 আমাদের সার্ভিসটি ব্যবহার করতে অবশ্যই নিচের চ্যানেল/গ্রুপগুলোতে যুক্ত হতে হবে。\n\n"
             "যুক্ত হওয়ার পর 'Verify' বাটনে ক্লিক করুন.*"
         )
         bot.send_message(
@@ -1638,6 +1638,9 @@ def payment_system_handler(message):
                 )
                 break
 
+        # বিকাশ লোগোর ডাইরেক্ট লিংক
+        logo_url = "https://i.ibb.co.com/LzVPxMXZ/vecteezy-bkash-logo-vector.jpg"
+
         if existing_bikash:
             markup = InlineKeyboardMarkup()
 
@@ -1654,12 +1657,9 @@ def payment_system_handler(message):
                 )
             )
 
-            bot.reply_to(
-                message,
+            caption_text = (
                 f"*💳 আপনার রানিং বিকাশ নম্বর: {existing_bikash}\n\n"
-                "এটি কি ঠিক আছে, নাকি পরিবর্তন করতে চান?*",
-                parse_mode="Markdown",
-                reply_markup=markup
+                "এটি কি ঠিক আছে, নাকি পরিবর্তন করতে চান?*"
             )
 
         else:
@@ -1673,12 +1673,15 @@ def payment_system_handler(message):
                 )
             )
 
-            bot.reply_to(
-                message,
-                "*💳 পেমেন্ট মেথড সিলেক্ট করুন:*",
-                parse_mode="Markdown",
-                reply_markup=markup
-            )
+            caption_text = "*💳 পেমেন্ট মেথড সিলেক্ট করুন:*"
+
+        bot.send_photo(
+            chat_id=user_id,
+            photo=logo_url,
+            caption=caption_text,
+            parse_mode="Markdown",
+            reply_markup=markup
+        )
 
     except Exception as e:
         bot.reply_to(
